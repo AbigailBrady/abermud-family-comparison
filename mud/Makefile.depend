@@ -1,0 +1,182 @@
+# DO NOT DELETE THIS LINE -- mkdep uses it.
+# DO NOT PUT ANYTHING AFTER THIS LINE, IT WILL GO AWAY.
+
+generate.o : generate.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h blib.h 
+blib.o : blib.c /usr/include/errno.h /usr/include/sys/errno.h \
+  /usr/include/sys/file.h /usr/include/sys/fcntl.h /usr/include/strings.h \
+  /usr/include/pwd.h kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h blib.h mud.h 
+action.o : action.c /usr/include/time.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h condact.h oflags.h action.h parse.h locdir.h \
+  weather.h extra.h zones.h magic.h objsys.h new2.h tk.h blood.h new1.h mud.h \
+  exec.h support.h bprintf.h uaf.h move.h macros.h locations.h pflags.h \
+  mail.h 
+blood.o : blood.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h blood.h bprintf.h exec.h locations.h lflags.h \
+  macros.h magic.h sendsys.h mobiles.h mud.h new1.h new2.h uaf.h objects.h \
+  objsys.h oflags.h parse.h pflags.h support.h tk.h weather.h 
+bootstrap.o : bootstrap.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h blib.h bootstrap.h \
+  macros.h aflags.h 
+bprintf.o : bprintf.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h blib.h pflags.h \
+  lflags.h bprintf.h macros.h mud.h support.h exec.h parse.h bsearch.h \
+  sendsys.h 
+change.o : change.c /usr/include/strings.h maint.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h parse.h \
+  parser.h support.h change.h pflags.h magic.h blib.h sendsys.h 
+condition.o : condition.c kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h support.h condact.h oflags.h pflags.h \
+  macros.h mud.h 
+database.o : database.c macros.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h condact.h objects.h locations.h oflags.h \
+  mobiles.h verbs.h 
+exec.o : exec.c /usr/include/setjmp.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h condact.h exec.h action.h support.h \
+  mud.h pflags.h 
+extra.o : extra.c kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h locdir.h key.h macros.h objects.h mobiles.h \
+  locations.h sendsys.h oflags.h extra.h new1.h new2.h blib.h support.h \
+  bprintf.h mud.h exec.h zones.h tk.h parse.h 
+flags.o : flags.c kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h pflags.h pflagnames.h lflags.h \
+  lflagnames.h flags.h exec.h support.h 
+frob.o : frob.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h sendsys.h frob.h exec.h mud.h \
+  parse.h support.h uaf.h key.h 
+gametime.o : gametime.c /usr/include/time.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h bprintf.h gametime.h 
+god.o : god.c kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h bprintf.h macros.h exec.h blib.h god.h 
+key.o : key.c /usr/include/sgtty.h /usr/include/sys/ioctl.h \
+  /usr/include/sys/ttychars.h /usr/include/sys/ttydev.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h key.h bprintf.h \
+  pflags.h macros.h 
+locdir.o : locdir.c /usr/include/fcntl.h /usr/include/sys/time.h \
+  /usr/include/time.h /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h actions.h macros.h \
+  oflags.h oflagnames.h lflags.h locdir.h blib.h support.h exec.h tk.h \
+  parse.h new2.h extra.h objsys.h gametime.h pflags.h 
+loctable.o : loctable.c kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h loctable.h macros.h exec.h bprintf.h 
+magic.o : magic.c kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h actions.h locdir.h macros.h objects.h \
+  mobiles.h sendsys.h pflags.h oflags.h lflags.h magic.h support.h exec.h \
+  parse.h blood.h extra.h new2.h weather.h tk.h 
+maint.o : maint.c maint.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h bprintf.h blib.h 
+mobile.o : mobile.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h objects.h \
+  mobiles.h sendsys.h pflags.h lflags.h mobile.h support.h blib.h blood.h \
+  parse.h exec.h 
+move.o : move.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h parse.h macros.h objects.h mobiles.h \
+  locations.h lflags.h move.h support.h blood.h new2.h tk.h blib.h pflags.h 
+msghand.o : msghand.c /usr/include/strings.h /usr/include/time.h \
+  /usr/include/sys/types.h /usr/include/sys/stat.h /usr/include/errno.h \
+  /usr/include/sys/errno.h kernel.h /usr/include/stdio.h /usr/include/ctype.h \
+  levels.h /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h \
+  support.h uaf.h bprintf.h pflags.h 
+mud.o : mud.c /usr/include/signal.h /usr/include/sys/errno.h \
+  /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h mud.h key.h macros.h support.h blib.h \
+  bprintf.h parse.h exec.h tk.h 
+mudprog.o : mudprog.c /usr/include/time.h /usr/include/signal.h \
+  /usr/include/strings.h /usr/include/sys/types.h /usr/include/sys/stat.h \
+  /usr/include/sys/ioctl.h /usr/include/sys/ttychars.h \
+  /usr/include/sys/ttydev.h kernel.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h mudprog.h blib.h mud.h gametime.h \
+  maint.h shutdown.h pflags.h 
+new1.o : new1.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h objects.h mobiles.h pflags.h \
+  oflags.h new1.h new2.h objsys.h parse.h support.h weather.h tk.h mud.h \
+  locations.h 
+new2.o : new2.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h objects.h mobiles.h locations.h \
+  sendsys.h pflags.h oflags.h lflags.h new2.h support.h parse.h uaf.h \
+  objsys.h tk.h mud.h weather.h bprintf.h exec.h verbs.h 
+objsys.o : objsys.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h objects.h mobiles.h \
+  locations.h pflags.h oflags.h lflags.h aflags.h objsys.h macros.h support.h \
+  blib.h bprintf.h new1.h new2.h parse.h tk.h weather.h exec.h extra.h \
+  blood.h 
+opensys.o : opensys.c kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h blib.h opensys.h mud.h 
+parse.o : parse.c /usr/include/strings.h /usr/include/signal.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h objects.h \
+  locations.h mobiles.h verbs.h sendsys.h pflags.h oflags.h version.h \
+  weather.h parse.h support.h blib.h tk.h flags.h exec.h new1.h opensys.h \
+  mud.h new2.h objsys.h magic.h uaf.h extra.h blood.h change.h zones.h \
+  bprintf.h frob.h god.h locdir.h key.h lflags.h mail.h maint.h 
+parser.o : parser.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h parser.h \
+  support.h pflags.h 
+sendsys.o : sendsys.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h objects.h \
+  mobiles.h verbs.h sendsys.h pflags.h oflags.h version.h weather.h parse.h \
+  support.h blib.h tk.h exec.h new1.h opensys.h mud.h new2.h objsys.h magic.h \
+  uaf.h extra.h blood.h change.h zones.h bprintf.h frob.h god.h locdir.h \
+  key.h lflags.h 
+support.o : support.c /usr/include/strings.h /usr/include/time.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h macros.h pflags.h \
+  oflags.h objects.h support.h blib.h tk.h mud.h 
+tk.o : tk.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h pflags.h lflags.h tk.h support.h \
+  opensys.h parse.h bprintf.h mud.h key.h blib.h weather.h objsys.h uaf.h \
+  zones.h loctable.h locations.h 
+uaf.o : uaf.c /usr/include/strings.h /usr/include/sys/types.h \
+  /usr/include/netinet/in.h kernel.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h blib.h uaf.h mud.h support.h \
+  bprintf.h key.h pflags.h 
+weather.o : weather.c /usr/include/strings.h kernel.h \
+  /usr/include/sys/types.h /usr/include/stdio.h /usr/include/ctype.h levels.h \
+  /usr/include/sys/wait.h /usr/include/machine/endian.h objects.h pflags.h \
+  oflags.h lflags.h weather.h macros.h new1.h new2.h support.h parse.h exec.h \
+  tk.h 
+zones.o : zones.c /usr/include/strings.h kernel.h /usr/include/sys/types.h \
+  /usr/include/stdio.h /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h macros.h zones.h loctable.h exec.h 
+blib.o : blib.c /usr/include/errno.h /usr/include/sys/errno.h \
+  /usr/include/sys/file.h /usr/include/sys/fcntl.h /usr/include/strings.h \
+  /usr/include/pwd.h kernel.h /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/ctype.h levels.h /usr/include/sys/wait.h \
+  /usr/include/machine/endian.h blib.h mud.h 
+bsearch.o : bsearch.c /usr/include/sys/types.h /usr/include/stdio.h \
+  /usr/include/assert.h bsearch.h 
+
+# IF YOU PUT ANYTHING HERE IT WILL GO AWAY

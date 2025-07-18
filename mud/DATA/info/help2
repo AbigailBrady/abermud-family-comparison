@@ -1,0 +1,19 @@
+  --- Wizard Commands --- Please get help on a command before using it! ---
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mUtilityA[0m                                          | A[7mTravel MessagesA[0m
+ALIAS     CHANGE     EMOTE    EMOTETO  EXORCISE  | SETIN   SETOUT   SETPROMPT
+IN        NOSHOUT    QUIET    RESET    RESURRECT | SETMIN  SETMOUT  REVIEW
+SET       SNOOP      STOP     TRACE    PEACE     | SETVIN  SETVOUT
+WIZLOCK   WIZUNLOCK  ZAP                         |
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mInformationalA[0m                                    | A[7mCommunicationA[0m
+LFLAGS    LOCATIONS  MOBILES  MWHO     OBJECTS   | WIZ
+PRIVS     TREASURES  SHOW     STATS    ZONES     |
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mSpells -- A[1;33mCombat spells kill mortals!A[0m            | A[7mWeather ControlA[0m
+BANG      BLIND      CRIPPLE  CURE     DEAFEN    | SUN   RAIN   STORM
+FIREBALL  FROST      GOTO     HEAL     INVIS     | SNOW  HAIL   BLIZZARD
+MISSILE   MUTE       POSE     SHOCK    SUMMON    |
+TRANS     VIS        WHERE                       |
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+

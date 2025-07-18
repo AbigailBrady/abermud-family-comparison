@@ -1,0 +1,806 @@
+98
+# :command [sahmdDBc]
+#	s - single-player can receive
+#	a - all players in the room receive
+#	h - hostile (is)
+#	m - message (sends a)
+#	c - crippled (sender must not be)
+#	d - dumb (sender must not be)
+#	B - Blind (receiver must not be)
+#	D - Deaf (receiver must not be; if so, receives normal message if not
+#		  too Blind to see)
+# message to all       (Use ^ if any of these aren't needed)
+# message to single
+# message to subject
+# message to sender
+# "message" message to all  (i.e., "asks")
+# "message" message to subject  (i.e., "asks you")
+#
+# A ~ indicates him/her, ^ indicates his/her (note the subtle difference)
+# @ gets replaced by the target's name or "you" (depending upon receiver)
+# & gets replaced by "your" or the possesive form of the target's name
+
+:applaud a
+gives a round of applause.
+You applaud wholeheartedly.
+^
+^
+^
+^
+
+:ask asm
+is apparently trying to ask something.
+The question died in your throat, eh?
+wants to ask @ something.
+Did you forget the question again?
+asks
+asks @
+
+:bearhug s
+^
+^
+gives @ a great, big, bone-crushing bearhug!
+You give ~ a great, big, bone-crushing bearhug!
+^
+^
+
+:belch a
+belches loudly!
+You uncouth slob!
+^
+^
+^
+^
+
+:bless as
+prepares for the end of the world!
+A blessing be upon your house.
+has just blessed @.
+Why bless your heart!
+^
+^
+
+:blink as
+blinks ^ eyes in disbelief!
+Blink, blink!
+blinks in disbelief at @!
+Blink, blink!
+^
+^
+
+:blush a
+blushes a lovely shade of red.
+Your cheeks are burning.
+^
+^
+^
+^
+
+:bounce as
+bounces around.
+B O I N G !!
+bounces @
+you bounce them.
+^
+^
+
+:bow sa
+bows gracefully.
+You bow to your audience.
+humbly bows to @.
+You bow to ~.
+^
+^
+
+:burp as
+appears to be having gastrointestinal difficulties.
+Excuse yourself!
+burps @.
+You burp them.
+^
+^
+
+:cackle asm
+throws back ^ head and cackles with glee!
+You cackle gleefully.
+points at @ and cackles with glee!
+You point at ~ and cackle gleefully.
+cackles
+points at @ and cackles
+
+:caress as
+considers the pet command.
+No, you want the "pet me" command.
+gently caresses @ with a twinkle in ^ eye.
+You can't help but smile as your hands glide over ^ smooth, soft flesh.
+^
+^
+
+:chant am
+is chanting for the Bears.
+Go team, go!
+^
+^
+is chanting monotonously
+^
+
+:cheer sam
+cheers with great gusto!
+You cheer wholeheartedly.
+cheers @ on!
+You cheer ~ on.
+cheers
+cheers to you
+
+:chuckle a
+chuckles politely.
+You chuckle politely.
+^
+^
+^
+^
+
+:clap sa
+claps wildly!
+You clap wildly!
+claps in admiration for @!
+Applause, applause!
+^
+^
+
+:comb a
+combs ^ hair.  Sparks fly.
+You comb your hair.  Perfect!
+^
+^
+^
+^
+
+:comfort s
+^
+^
+comforts @, and offers ^ sympathy.
+You comfort ~.
+^
+^
+
+:cough a
+coughs noisily.
+Cover your mouth when you do that!
+^
+^
+^
+^
+
+:cry as
+cries ^ heart out.
+Waaaaah!
+cries woefully to @.
+You turn to ~ and burst into tears.
+cries sadly
+cries woefully to @
+
+:cuddle s
+^
+^
+cuddles @.
+You cuddle ~.
+^
+^
+
+:curtsey a
+curtseys gracefully.
+You curtsey gracefully.
+^
+^
+^
+^
+
+:dance sa
+does the disco duck.
+Feels silly, doesn't it?
+dances with @, with a look of utter rapture on ^ face.
+You sweep ~ off ^ feet.
+^
+^
+
+:embrace as
+embraces the teachings of Reverend Harry Krishna.
+You embrace the teachings of Reverend Harry Krishna.
+gives @ a warm and loving embrace.
+Arms are for hugging, eh?
+^
+^
+
+:feltch s
+^
+^
+feltches @!!!
+you feltch them!
+^
+^
+
+:flip a
+flips head over heels.
+You flip head over heels.
+^
+^
+^
+^
+
+:fondle s
+^
+^
+fondles @.
+You fondle ~.
+^
+^
+
+:french as
+mutters in French.
+You mutter in French.
+kisses @ for a long, long time...
+you kiss ~... and kiss ~... and kiss ~...
+^
+^
+
+:frown as
+frowns darkly.
+Is something wrong?
+frowns darkly at @.
+What did they do this time?
+^
+^
+
+:gasp a
+gasps with ^ mouth wide open!
+You gasp in astonishment.
+gasps at @!
+Shocked, aren't we?
+^
+^
+
+:giggle sam
+giggles in a fit of uncontrollable mirth.
+You giggle insanely.
+giggles at @.
+You'll get yours...
+giggles
+giggles at you
+
+:glare s
+^
+^
+fixes @ with an icy glare!
+You glare icily at ~.
+^
+^
+
+:groan sam
+groans miserably!
+You groan miserably.
+groans loudly at @!
+That bad, eh?
+groans
+groans at @
+
+:growl sa
+growls ominously.
+You growl ominously.
+growls at @!
+You growl at ~.
+^
+^
+
+:grin sam
+grins evilly.
+You grin evilly.
+grins at @ with lust in ^ eyes.
+Watch it, bub!
+grins evilly and says
+grins at you and says
+
+:grope sh
+^
+^
+gropes @.
+<Well what sort of noise do you expect here?>
+^
+^
+
+:hiccup a
+hiccups.
+Hic!
+^
+^
+^
+^
+
+:hug s
+^
+^
+hugs @ close.
+You hug ~.
+^
+^
+
+:hum a
+is humming a little tune!
+Did you forget the words?
+^
+^
+^
+^
+
+:kick sh
+^
+^
+kicks @ in the knees.  
+You kick ~ in the knees.
+^
+^
+
+:kiss s
+^
+^
+kisses @ lightly on the cheek!
+Oh, how sweet!
+^
+^
+
+:kvetch a
+bitches and moans at the state of the world.
+Oy vey!  You think *you've* got troubles?
+^
+^
+^
+^
+
+:laugh as
+falls down laughing.
+You fall down laughing.
+laughs at @!
+You laugh happily at ~.
+^
+^
+
+:lick s
+^
+^
+licks @.
+You lick ~.
+^
+^
+
+:massage s
+^
+^
+gives @ a sensuous massage.
+You expertly massage ~.
+^
+^
+
+:meditate a
+meditates quietly in the corner.
+You feel the spirit within you.
+^
+^
+^
+^
+
+:moan asm
+moans softly!
+You moan softly.
+moans blissfully at @.
+You moan softly at ^ ministrations.
+moans softly
+moans in your ear
+
+:mumble am
+mumbles to ~self.
+What a fascinating topic!
+^
+^
+mumbles to ~self about
+^
+
+:naah a
+mutters "naaah" apatheticly.
+oh well.
+^
+^
+^
+^
+
+:nibble as
+notices four bits lying here.
+you notice four bits lying here.
+nibbles on @!  (You don't want to know where!)
+You nibble ^ ear.
+^
+^
+
+:nod as
+nods solemnly.
+You nod solemnly.
+nods to @ in agreement.
+You nod to ~ in agreement.
+^
+^
+
+:nudge s
+^
+^
+nudges @ experimentally.
+You nudge ~ experimentally.  Nope, out like a light!
+^
+^
+
+:nuzzle s
+^
+^
+softly nuzzles & neck.
+You nuzzle ^ neck softly.
+^
+^
+
+:pant sa
+pants like a dog.
+You pant like a dog.
+gazes hungrily at @ and pants in anticipation!
+Unable to control yourself, your jaw drops at the sight of ~!
+^
+^
+
+:pinch s
+^
+^
+pinches @.  Ouch!
+You pinch ~.
+^
+^
+
+:poke sh
+^
+^
+pokes @ in the ribs.
+You poke ~ in the ribs.
+^
+^
+
+:ponder a
+ponders life, the universe, and the outcome of the SuperBowl.
+Strange thoughts of giants and pennants fill your mind.
+^
+^
+^
+^
+
+:pout a
+pouts.
+Ah, don't take it so hard.
+^
+^
+^
+^
+
+:psydeozap s
+^
+^
+zaps @!                    Ooops... just kidding.  :-)
+You pretend to zap them.
+^
+^
+
+:puke as
+pukes on ^ shoes.
+You puke on your shoes.
+pukes all over @!
+You puke on ~.
+^
+^
+
+:purr a
+purrs contentedly.
+MMMMEEEEEEEEOOOOOOOWWWWWWW!
+^
+^
+^
+^
+
+:ruffle s
+^
+^
+ruffles & hair playfully.
+You ruffle ^ hair playfully.
+^
+^
+
+:say am
+is speechless.
+What do you want to say?
+^
+^
+says
+^
+
+:scream am
+screams bloody murder!
+ARRGGGGGGHHHHHH!!!!
+^
+^
+screams
+^
+
+:shake as
+shakes and quivers like a bowlful of jelly.
+You're shaking in your boots.
+shakes hands with @.
+You shake hands with ~.
+^
+^
+
+:shiver a
+shivers from the cold.
+Brrrrrr!!!
+^
+^
+^
+^
+
+:shrug as
+shrugs ^ shoulders.
+You shrug.
+shrugs indifferently at @!
+You shrug indifferently at ~.
+^
+^
+
+:sigh asm
+sighs loudly.
+You sigh.
+is sighing heavily on & shoulder.
+You lean on ^ shoulder and sigh heavily.
+sighs
+sighs to you
+
+:sing asm
+sings in Italian.
+Oh sole mio!
+sings a love song for you.
+What a beautiful love song!
+sings
+sings to you
+
+:slap sh
+^
+^
+slaps @ across the face!
+You slap ~.
+^
+^
+
+:smack sh
+^
+^
+smacks @ across the mouth!
+You smack ~ sharply.
+^
+^
+
+:smile sam
+smiles happily.
+You smile happily.
+smiles at @.
+You smile at ~.
+smiles and says
+smiles at @ and says
+
+:smirk sa
+smirks.
+You smirk.
+smirks at @.
+You smirk at ~.
+^
+^
+
+:smooch s
+^
+^
+kisses @ deeply.
+What a kiss!  I'd rate that an 8!
+^
+^
+
+:snap as
+snaps ^ fingers.
+You snap your fingers.
+tries to snap @ in half.
+You try to snap them in half.
+^
+^
+
+:sneer sa
+sneers contemptously.
+Oh, I just love evil players!
+sneers contemptously at @!
+You sneer contemptously at ~.
+^
+^
+
+:sneeze sa
+sneezes.
+Gazundheit!
+sneezes all over @!
+Ick!
+^
+^
+
+:snicker am
+snickers under ^ breath.
+You snicker.
+^
+^
+snickers under ^ breath
+^
+
+:sniff a
+sniffs.
+You sniff.
+^
+^
+^
+^
+
+:snore a
+snores loudly.
+Zzzzzzzzzz...
+^
+^
+^
+^
+
+:snuggle s
+^
+^
+snuggles up to @.
+You snuggle ~.
+^
+^
+
+:sob am
+sobs pitiously.
+AberMUD comforts you.
+^
+^
+breaks down and sobs
+^
+
+:spit sah
+spits on the ground.
+Ptooey!
+spits on @!
+You spit on ~.
+^
+^
+
+:squeeze s
+^
+^
+squeezes @ fondly.
+You squeeze ~ fondly.
+^
+^
+
+:stare sa
+stares into space.
+You stare into space.
+stares deep into & eyes.
+You stare dreamily at ~.
+^
+^
+
+:strut a
+struts proudly.
+Strut your stuff!
+^
+^
+^
+^
+
+:sulk a
+sulks in the corner.
+You sulk.
+^
+^
+^
+^
+
+:tease as
+performs a seductive strip tease!
+With erotic precision you strip off all your clothing!
+is teasing @ half to death!
+Hee, hee!  That'll get ~!
+^
+^
+
+:thank s
+^
+^
+thanks @ whole-heartedly.
+You thank ~.
+^
+^
+
+:think am
+is thinking about ^ next hot date.
+What's on your mind?
+^
+^
+thinks out loud
+^
+
+:tongue as
+sticks ^ tongue out!
+Braaaaaaaat!
+puts ^ tongue in & mouth and thrusts it about wildly
+you tongue them wildly.
+^
+^
+
+:twiddle a
+twiddles ^ thumbs.
+You twiddle your thumbs.
+^
+^
+^
+^
+
+:whimper am
+whimpers softly.
+What's wrong, flower?
+^
+^
+collapses to the floor and whimpers
+^
+
+:whine am
+whines piteously!
+Sniveling wimp!
+^
+^
+whines
+^
+
+:whistle sa
+is whistling a little tune.
+Whistle while you work!
+whistles at @ with lust in ^ eyes!
+You whistle lustfully at ~.
+^
+^
+
+:wiggle as
+wiggles ^ bottom.
+You wiggle your bottom.
+wiggles @.
+You wiggle them.
+^
+^
+
+:wink sa
+winks suggestively.
+You wink.
+winks suggestively at @.
+You wink at ~.
+^
+^
+
+:yawn a
+yawns.
+My, what big teeth you have!
+^
+^
+^
+^
+

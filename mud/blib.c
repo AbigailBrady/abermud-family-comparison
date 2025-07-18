@@ -1,149 +1,234 @@
-#include <crypt.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
-#include <pwd.h>
-#include <unistd.h>
+/*
+**  Random functions and utilities
+**  This emulates some useful parts of the B system library, etc.
+**  Not everyone needs everything here, but it's too hard to split
+**  things up into pieces...
+*/
 
-#include "System.h"
-#include "functions.h"
+#include <errno.h>
+#include <sys/file.h>
+#include <strings.h>
+#include <pwd.h>
+#include "kernel.h"
+#include "blib.h"
+#include "mud.h"
+
+static char sccsid[] = "@(#)blib.c	4.100.0 (IthilMUD)	6/02/90";
+
+/* NOTE:  I will mark the end of the Berkeley file.  */
 
 /*
+ * Copyright (c) 1987 Regents of the University of California.
+ * All rights reserved.
  *
- *	B functions and utilities
- *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of California at Berkeley. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific written prior permission. This software
+ * is provided ``as is'' without express or implied warranty.
  */
+
+/*
+ * This array is designed for mapping upper and lower case letter
+ * together for a case independent comparison.  The mappings are
+ * based upon ascii character sequences.
+ */
+static u_char charmap[] = {
+	'\000', '\001', '\002', '\003', '\004', '\005', '\006', '\007',
+	'\010', '\011', '\012', '\013', '\014', '\015', '\016', '\017',
+	'\020', '\021', '\022', '\023', '\024', '\025', '\026', '\027',
+	'\030', '\031', '\032', '\033', '\034', '\035', '\036', '\037',
+	'\040', '\041', '\042', '\043', '\044', '\045', '\046', '\047',
+	'\050', '\051', '\052', '\053', '\054', '\055', '\056', '\057',
+	'\060', '\061', '\062', '\063', '\064', '\065', '\066', '\067',
+	'\070', '\071', '\072', '\073', '\074', '\075', '\076', '\077',
+	'\100', '\141', '\142', '\143', '\144', '\145', '\146', '\147',
+	'\150', '\151', '\152', '\153', '\154', '\155', '\156', '\157',
+	'\160', '\161', '\162', '\163', '\164', '\165', '\166', '\167',
+	'\170', '\171', '\172', '\133', '\134', '\135', '\136', '\137',
+	'\140', '\141', '\142', '\143', '\144', '\145', '\146', '\147',
+	'\150', '\151', '\152', '\153', '\154', '\155', '\156', '\157',
+	'\160', '\161', '\162', '\163', '\164', '\165', '\166', '\167',
+	'\170', '\171', '\172', '\173', '\174', '\175', '\176', '\177',
+	'\200', '\201', '\202', '\203', '\204', '\205', '\206', '\207',
+	'\210', '\211', '\212', '\213', '\214', '\215', '\216', '\217',
+	'\220', '\221', '\222', '\223', '\224', '\225', '\226', '\227',
+	'\230', '\231', '\232', '\233', '\234', '\235', '\236', '\237',
+	'\240', '\241', '\242', '\243', '\244', '\245', '\246', '\247',
+	'\250', '\251', '\252', '\253', '\254', '\255', '\256', '\257',
+	'\260', '\261', '\262', '\263', '\264', '\265', '\266', '\267',
+	'\270', '\271', '\272', '\273', '\274', '\275', '\276', '\277',
+	'\300', '\341', '\342', '\343', '\344', '\345', '\346', '\347',
+	'\350', '\351', '\352', '\353', '\354', '\355', '\356', '\357',
+	'\360', '\361', '\362', '\363', '\364', '\365', '\366', '\367',
+	'\370', '\371', '\372', '\333', '\334', '\335', '\336', '\337',
+	'\340', '\341', '\342', '\343', '\344', '\345', '\346', '\347',
+	'\350', '\351', '\352', '\353', '\354', '\355', '\356', '\357',
+	'\360', '\361', '\362', '\363', '\364', '\365', '\366', '\367',
+	'\370', '\371', '\372', '\373', '\374', '\375', '\376', '\377',
+};
+
+int strcasecmp(s1, s2)
+	char *s1, *s2;
+{
+	register u_char	*cm = charmap,
+			*us1 = (u_char *)s1,
+			*us2 = (u_char *)s2;
+
+	while (cm[*us1] == cm[*us2++])
+		if (*us1++ == '\0')
+			return(0);
+	return(cm[*us1] - cm[*--us2]);
+}
+
+int strncasecmp(s1, s2, n)
+	char *s1, *s2;
+	register int n;
+{
+	register u_char	*cm = charmap,
+			*us1 = (u_char *)s1,
+			*us2 = (u_char *)s2;
+
+	while (--n >= 0 && cm[*us1] == cm[*us2++])
+		if (*us1++ == '\0')
+			return(0);
+	return(n < 0 ? 0 : cm[*us1] - cm[*--us2]);
+}
+
+/*
+** 
+**   END OF BERKELEY INCLUDE.  I added it because of the strcasecmp
+**   and strncasecmp function calls that our system does not have.
+**
+*/
+
+void GetFields(char *p, char *Data1, char *Data2)
+{
+    while ((*Data1 = *p++) != '\001')
+        Data1++;
+    *Data1 = '\0';
+    if (Data2)
+    {
+        while (*p && *p != '\001')
+        *Data2++ = *p++;
+        *Data2 = '\0';
+    }
+}
+
+/* Emulate Honeywell random-access files. */
+
+void sec_read(FILE *unit, int *block, int pos, int len)
+{
+    (void)fseek(unit, (long)(pos * 64 * sizeof (int)), 0);
+    (void)fread((char *) block, len * sizeof (int), 1, unit);
+}
+
+void sec_write(FILE *unit, int *block, int pos, int len)
+{
+    (void)fseek(unit, (long)(pos * 64 * sizeof(int)), 0);
+    (void)fwrite((char *) block, len * sizeof(int), 1, unit);
+}
+
+/* Clear screen */
+
+void
+cls()
+{
+    fflush(stdout);
+    (void)system("exec clear");
+}
+
+/* Convert a string to lowercase */
 
 char *lowercase(char *str)
 {
-	char *stp=str;
-	while(*str)
-	{
-		if(isupper(*str)) *str=tolower(*str);
-		str++;
-	}
-return(stp);
+    char *p;
+
+    for (p = str; *p; p++)
+        if (isupper(*p))
+            *p = tolower(*p);
+    return str;
 }
+
+/* Convert a string to uppercase. */
 
 char *uppercase(char *str)
 {
-	char *stp=str;
-	while(*str)
-	{
-		if(islower(*str)) *str=toupper(*str);
-		str++;
-	}
-return(stp);
+    char *p;
+
+    for (p = str; *p; p++)
+        if (islower(*p))
+            *p = toupper(*p);
+    return str;
 }
 
-char *trim(char *str)
+/* Get memory */
+
+int *xmalloc(int i)
 {
-	char *x;
-	x=str+strlen(str);
-	while(*x==32)
-	{
-		*x=0;
-		x--;
-	}
-	return(str);
+    int	*p;
+
+    /* NOSTRICT "warning: possible pointer alignment problem" */
+    if ((p = (int *)malloc((unsigned int)i)) == NULL)
+    {
+        (void)fprintf(stderr, "No room to allocate %d bytes.\n", i);
+        abort();
+    }
+    return p;
 }
 
-int any(char ch,char *str)
+FILE *openlock(char *file, char *perm)
 {
-	if(strchr(str,ch)==NULL) return(-1);
-	return(strchr(str,ch)-str);
+    FILE *unit;
+    int errno;
+
+    for (errno = 0; (unit = fopen(file, perm)) == NULL && errno == EINTR; )
+        ;				/* INTERRUPTED SYSTEM CALL CATCH */
+    if (unit == NULL || EQ(perm, "r"))
+        return unit;
+    while (flock(fileno(unit), LOCK_EX) == -1 && errno == EINTR)
+        ;				/* INTERRUPTED SYSTEM CALL CATCH */
+    if (errno == ENOSPC)
+        crapup("PANIC exit device full");
+    #ifdef ESTALE
+        if (errno == ESTALE || errno == EHOSTUNREACH || errno == EHOSTDOWN)
+        crapup("PANIC exit access failure, NFS gone for a snooze");
+    #endif /* ESTALE */
+    return unit;
 }
 
-void gepass(char *str)
+void get_username(char *username)
 {
-	char key[33],pw[16];
+    struct passwd *entry;
 
-	strcpy(key,getpass(""));
-	strcpy(pw,crypt(key,"XX"));
-	strcpy(str,pw);
+    entry = getpwuid(getuid());
+    strcpy(username, entry->pw_name);
 }
 
-int scan(char *out,char *in,int start,char *skips,char *stops)
+char *ttyname(int);
+
+void get_ttynum(char *ttynum)
 {
-	char *in_base=in;
-/*	char *sy_ot=out;
-	printf("Scan(%s ->%d %d %s %s",in,out,start,skips,stops);*/
-	if(strlen(in)<start) {*out=0;return(-1);}
-	in+=start;
-	while((*in)&&(strchr(skips,*in))) in++;
-	if(*in==0) {*out=0;return(-1);}
-	while((*in)&&(strchr(stops,*in)==0))
-	{
-		*out= *in;
-		out++;
-		in++;
-	}
-/*	printf(" : Outputting %s\n",sy_ot); */
-	*out=0;
-	return(in-in_base);
+    char *tty;
+
+    if (tty = ttyname(0))
+	strcpy(ttynum, tty);
+    else
+	strcpy(ttynum, "/dev/tty??");
 }
 
-char *getstr(FILE *file,char *st)
+/* Inserts ch into s at position i */
+
+void insertch(char *s, char ch, int i)
 {
-	if(!fgets(st,255,file)) return(0);
-	if(strchr(st,'\n')) *strchr(st,'\n')=0;
-	return(st);
-}
+    int j;
 
-void addchar(char *str,char ch)
-{
-	int x=strlen(str);
-	str[x]=ch;
-	str[x+1]=0;
+    j = strlen(s) + 1;
+    while (j > i)
+    {
+        s[j] = s[j - 1];
+        j--;
+    }
+    s[i] = ch;
 }
-
-long numarg(char *str)
-{
-	long i=0;
-	sscanf(str," %ld",&i);
-	return(i);
-}
-
-int sbar()
-{
-	return(-1); /* Unknown code needed here */
-}
-
-void f_listfl(char *name,FILE *file)
-{
-	FILE *a;
-	char x[128];
-	a=fopen(name,"r");
-	if(a==NULL) fprintf(stderr,"[Cannot find file ->%s ]\n",name);
-	else
-        {
-	while(fgets(x,127,a)) fprintf(file,"%s",x);
-        }
-}
-
-
-void sec_read(FILE *unit,long *block,long pos,long len)
-{
-	fseek(unit,pos*64*sizeof(long),0);
-	fread((char *)block,len*(sizeof(long)),1,unit);
-}
-
-void sec_write(FILE *unit,long *block,long pos,long len)
-{
-	fseek(unit,pos*64*sizeof(long),0);
-	fwrite((char *)block,len*(sizeof(long)),1,unit);
-}
-
-char *cuserid(char *str)
-{
-/*
-	extern char *strchr();
-	getpw(getuid(),ary);
-	*strchr(ary,':')=0;
-*/
-	static char ary[128];
-	strcpy(ary,getpwuid(getuid())->pw_name);
-	if(str!=NULL) strcpy(str,ary);
-	return(ary);
-}
-	

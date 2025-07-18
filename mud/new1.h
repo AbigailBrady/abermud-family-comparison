@@ -1,0 +1,13 @@
+void flowercom();
+void ticklecom();
+void petcom();
+void wishcom();
+int ohereandget(int *onm);
+void setobjstate(int o, int v);
+void wavecom();
+void blowcom();
+void putcom();
+void lightcom();
+void extinguishcom();
+void pushcom();
+int vicbase(int *x);

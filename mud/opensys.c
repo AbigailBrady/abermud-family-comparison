@@ -1,32 +1,38 @@
-/* Fast File Controller v0.1 */
-#include <stdio.h>
+/*
+**  Open and close the world file (with locking)
+*/
 
-#include "System.h"
-#include "functions.h"
+#include "kernel.h"
+#include "macros.h"
+#include "blib.h"
+#include "opensys.h"
+#include "mud.h"
 
-FILE *filrf=NULL;  /* - = not open */
+static char sccsid[] = "@(#)opensys.c	4.100.0 (IthilMUD)	6/02/90";
 
-void closeworld(void)
+#define UBLOCK 201
+
+void closeworld()
 {
-	extern FILE *filrf;
-        extern long objinfo[],numobs,ublock[];
-	if(filrf==NULL) return;
-	sec_write(filrf,objinfo,400,4*numobs);
-	sec_write(filrf,ublock,350,16*48);
-	fcloselock(filrf);
-	filrf= NULL;
+  if (spawned || filrf == NULL)
+    return;
+  sec_write(filrf, objinfo, UBLOCK + 41, o_ofs(numobs));
+  sec_write(filrf, (int*)shimge, UBLOCK + 40, 16);
+  sec_write(filrf, ublock, UBLOCK, 16 * MAX_CHARS);
+  closelock(filrf);
+  filrf = NULL;
 }
- 
-FILE *openworld(void)
+
+FILE *openworld()
 {
-	extern FILE *filrf;
-        extern long objinfo[],numobs,ublock[];
-	if(filrf!=NULL) return(filrf);
-	filrf=openlock(WORLD_FILE/*"/usr/tmp/-iy7AM"*/,"r+");
-	if(filrf==NULL)
-	   crapup("Cannot find World file");
-	sec_read(filrf,objinfo,400,4*numobs);
-	sec_read(filrf,ublock,350,16*48);
-	return(filrf);
+  if (spawned)
+    return NULL;
+  if (filrf != NULL)
+    return filrf;
+  if ((filrf = openlock(UNIVERSE, "r+")) == NULL)
+    crapup("Cannot find World file");
+  sec_read(filrf, objinfo, UBLOCK + 41, o_ofs(numobs));
+  sec_read(filrf, (int*)shimge, UBLOCK + 40, 16);
+  sec_read(filrf, ublock, UBLOCK, 16 * MAX_CHARS);
+  return filrf;
 }
- 

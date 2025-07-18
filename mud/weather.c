@@ -1,531 +1,351 @@
-#include "files.h"
-#include "functions.h"
+/*
+**  The game functions controlling the weather.  (Ones that do not need moved.)
+*/
 
-#include <stdio.h>
-#include <time.h>
+#include <strings.h>
+#include "kernel.h"
+#include "objects.h"
+#include "pflags.h"
+#include "oflags.h"
+#include "lflags.h"
+#include "weather.h"
+#include "macros.h"
+#include "new1.h"
+#include "new2.h"
+#include "support.h"
+#include "parse.h"
+#include "exec.h"
+#include "tk.h"
 
-extern char globme[];
-extern char wordbuf[];
+/*
+** Weather Routines
+** Current weather defined by state of OBJ_SYS_WEATHER; states are
+**	0 Sunny   1 Rain   2 Stormy   3 Snowing   4 Blizzard   5 Hailing
+*/
 
+void adjust_weather(weather_type new_setting)
+{
+  int x;
 
- /*
- 
- The next part of the universe...
- 
- 
- */
- 
- /*
- 
- Weather Routines
- 
- Current weather defined by state of object 47
- 
- states are
- 
- 0   Sunny
- 1   Rain
- 2   Stormy
- 3   Snowing
- 
- */
- 
- 
- void setwthr(int n)
-    {
-    extern long my_lev;
-    if(my_lev<10)
-       {
-       bprintf("What ?\n");
-       return;
-       }
-    adjwthr(n);
-    }
- 
- void suncom(void)
-    {
-    setwthr(0);
-    }
- 
- void raincom(void)
-    {
-    setwthr(1);
-    }
- 
- void stormcom(void)
-    {
-    setwthr(2);
-    }
- 
- void snowcom(void)
-    {
-    setwthr(3);
-    }
- 
- void blizzardcom(void)
-    {
-    	setwthr(4);
-    }
- void adjwthr(int n)
-    {
-    long x;
-    extern char globme[];
-    extern long curch;
-    x=state(0);
-    set_state(0,n);
-    if(x!=n) sendsys(globme,globme,-10030,n,"");
-    }
- 
- void longwthr(void)
-    {
-    long a;
-    a=randperc();
-    if(a<50)
-       {
-       adjwthr(1);
-       return;
-       }
-    if(a>90)
-       {
-       adjwthr(2);
-       return;
-       }
-    adjwthr(0);
+  x = state(OBJ_WEATHER);
+  setobjstate(OBJ_WEATHER, new_setting);
+  if (x != new_setting)
+    sendsys(pname(mynum), pname(mynum), -10030, new_setting, "");
+}
+
+void set_weather(weather_type new_setting)
+{
+  if (plev(mynum) < LVL_WIZARD) {
+    erreval();
     return;
+  }
+  adjust_weather(new_setting);
+}
+
+void longwthr()
+{
+  int a;
+
+  if (randperc() < 70)
+    return;
+  a = randperc();
+  if (a < 10)
+      adjust_weather(hailing);
+  else if (a < 50)
+    adjust_weather(rainy);
+  else if (a > 90)
+    adjust_weather(stormy);
+  else
+    adjust_weather(sunny);
+  return;
+}
+
+void wthrrcv(weather_type type)
+{
+  if (!outdoors())
+    return;
+  switch (modifwthr(type)) {
+  case sunny:
+    bprintf("\001cThe sun comes out of the clouds.\n\377");
+    break;
+  case rainy:
+    bprintf("\001cIt has started to rain.\n\377");
+    break;
+  case stormy:
+    bprintf("\001cDark clouds boil across the sky as a heavy storm breaks.\n\377");
+    break;
+  case snowing:
+    bprintf("\001cIt has started to snow.\n\377");
+    break;
+  case blizzard:
+    bprintf("\001cYou are half blinded by drifting snow, as a white, icy blizzard sweeps across\nthe land.\n\377");
+    break;
+  case hailing:
+    bprintf("\001cYou run for cover as golf-ball sized hailstones begin to fall.\n\377");
+  }
+}
+
+void showwthr()
+{
+  if (!outdoors())
+    return;
+  switch (modifwthr (state(OBJ_WEATHER))) {
+  case rainy:
+    if (ploc(mynum) > -199 && ploc(mynum) < -178) {
+      bprintf("It is raining, a gentle mist of rain, which sticks to everything around\n");
+      bprintf("you making it glisten and shine.  High in the skies above you is a rainbow.\n");
     }
- 
- 
- void wthrrcv(int type)
-    {
-    if(!outdoors()) return;
-    type=modifwthr(type);
-    switch(type)
-       {
-       case 0:
-          bprintf("\001cThe sun comes out of the clouds\n\001");
-          break;
-       case 1:
-          bprintf("\001cIt has started to rain\n\001");
-          break;
-       case 2:
-          break;
-       case 3:
-          bprintf("\001cIt has started to snow\n\001");
-          break;
-       case 4:
-          bprintf("\001cYou are half blinded by drifting snow, as a white, icy blizzard sweeps across\nthe land\n\001");
-          break;
-          }
-    }
- 
- void showwthr(void)
-    {
-    extern long curch;
-    if(!outdoors()) return;
-    switch(modifwthr(state(0)))
-       {
-       case 1:
-          if((curch>-199)&&(curch<-178))
-             {
-             bprintf("It is raining, a gentle mist of rain, which sticks to everything around\n");
-             bprintf("you making it glisten and shine. High in the skies above you is a rainbow\n");
-             }
-          else
-             bprintf("\001cIt is raining\n\001");
-          break;
-       case 2:
-          bprintf("\001cThe skies are dark and stormy\n\001");
-          break;
-       case 3:
-          bprintf("\001cIt is snowing\001\n");
-          break;
-       case 4:
-          bprintf("\001cA blizzard is howling around you\001\n");
-          break;
-       }
-    }
- 
- int outdoors(void)
-    {
-    extern long curch;
-    switch(curch)
-       {
-       case -100:;
-       case -101:;
-       case -102:return(1);
-       case -183:return(0);
-       case -170:return(0);
-       default:
-          if((curch>-191)&&(curch<-168)) return(1);
-          if((curch>-172)&&(curch<-181)) return(1);
-          return(0);
-       }
-    }
- 
- 
- /* Silly Section */
- 
- void sillycom(char *txt)
-    {
-    extern char globme[];
-    extern long curch;
-    char bk[256];
-    sprintf(bk,txt,globme,globme);
-    sendsys(globme,globme,-10000,curch,bk);
-    }
- 
- void laughcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d falls over laughing\n\001");
-    bprintf("You start to laugh\n");
-    }
- 
- void purrcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d starts purring\n\001");
-    bprintf("MMMMEMEEEEEEEOOOOOOOWWWWWWW!!\n");
-    }
+    else
+      bprintf("\001cIt is raining.\n\377");
+    break;
+  case stormy:
+    bprintf("\001cThe skies are dark and stormy.\n\377");
+    break;
+  case snowing:
+    bprintf("\001cIt is snowing.\377\n");
+    break;
+  case blizzard:
+    bprintf("\001cA blizzard is howling around you.\377\n");
+    break;
+  case hailing:
+    bprintf("\001cIt is hailing.\377\n");
+  }
+}
+
+int
+outdoors()
+{
+  return (ltstflg(ploc(mynum), lfl(Outdoors)));
+}
+
+/* Silly Section */
+
+void sillycom(char *txt)
+{
+  char bk[256];
   
- void crycom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001s%s\001%s bursts into tears\n\001");
-    bprintf("You burst into tears\n");
-    }
- 
- void sulkcom(void)
-    {
-    sillycom("\001s%s\001%s sulks\n\001");
-    bprintf("You sulk....\n");
-    }
- 
- void burpcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d burps loudly\n\001");
-    bprintf("You burp rudely\n");
-    }
- 
- void hiccupcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d hiccups\n\001");
-    bprintf("You hiccup\n");
-    }
- 
-long hasfarted=0;
-
-void fartcom(void)
-    {
-    extern long hasfarted;
-    hasfarted=1;
-    sillycom("\001P%s\001\001d lets off a real rip roarer\n\001");
-    bprintf("Fine...\n");
-    }
- 
- void grincom(void)
-    {
-    sillycom("\001s%s\001%s grins evilly\n\001");
-    bprintf("You grin evilly\n");
-    }
- 
- void smilecom(void)
-    {
-    sillycom("\001s%s\001%s smiles happily\n\001");
-    bprintf("You smile happily\n");
-    }
- 
- void winkcom(void)
-    {					/* At person later maybe ? */
-    sillycom("\001s%s\001%s winks suggestively\n\001");
-    bprintf("You wink\n");
-    }
- 
- void sniggercom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d sniggers\n\001");
-    bprintf("You snigger\n");
-    }
- 
- void posecom(void)
-    {
-    long a;
-    extern long my_lev;
-    if(my_lev<10)
-       {
-       bprintf("You are just not up to this yet\n");
-       return;
-       }
-    time(&a);
-    srand(a);
-    a=randperc();
-    a=a%5;
-    bprintf("POSE :%ld\n",a);
-    switch(a)
-       {
-       case 0:
-          break;
-       case 1:
-	sillycom("\001s%s\001%s throws out one arm and sends a huge bolt of fire high\n\
-into the sky\n\001");
-          broad("\001cA massive ball of fire explodes high up in the sky\n\001");
-          break;
-       case 2:
-          sillycom("\001s%s\001%s turns casually into a hamster before resuming normal shape\n\001");
-          break;
-       case 3:
-          sillycom("\001s%s\001%s \
-starts sizzling with magical energy\n\001");
-          break;
-       case 4:
-          sillycom("\001s%s\001%s begins to crackle with magical fire\n\001");
-          break;
-          }
-    }
-
- void emotecom(void)
- /*
-  (C) Jim Finnis
- */
- {
- 	extern long my_lev;
- 	char buf[100];
- 	strcpy(buf,"\001P%s\001 ");
- 	getreinput(buf+6);
- 	strcat(buf,"\n");
- 	if (my_lev<10000)
- 		bprintf("Your emotions are strictly limited!\n");
-	else
-		sillycom(buf);
+  sprintf(bk, txt, pname(mynum), pname(mynum));
+  sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), bk);
 }
-		
- void praycom(void)
-    {
-    extern long curch;
-    sillycom("\001s%s\001%s falls down and grovels in the dirt\n\001");
-    bprintf("Ok\n");
-    }
 
- void yawncom(void)
-    {
-    sillycom("\001P%s\001\001d yawns\n\001");
+void posecom()
+{
+  char x[128];
+
+  if (plev(mynum) < LVL_MAGICIAN) {
+    bprintf("You're not up to this yet.\n");
+	return;
+  }
+  if (pstr(mynum) > 2) {
+    switch (randperc() % 5) {
+    case 0:
+      sprintf(x, "\001s%%s\377%%s raises %s arms in mighty magical invocations.\n\377", his_or_her(mynum));
+	  sillycom(x);
+      bprintf("You make mighty magical gestures.\n");
+      setpstr(mynum, pstr(mynum) - 2);
+	  break;
+    case 1:
+      sillycom("\001s%s\377%s throws out one arm and sends a huge bolt of fire high into the sky.\n\377");
+      bprintf("You toss a fireball high into the sky.\n");
+      broad("\001cA massive ball of fire explodes high up in the sky.\n\377");
+      setpstr(mynum, pstr(mynum) - 5);
+	  break;
+    case 2:
+      sillycom("\001s%s\377%s turns casually into a hamster before resuming normal shape.\n\377");
+      bprintf("You casually turn into a hamster before resuming normal shape.\n");
+      setpstr(mynum, pstr(mynum) - 2);
+      break;
+    case 3:
+      sillycom("\001s%s\377%s starts sizzling with magical energy.\n\377");
+      bprintf("You sizzle with magical energy.\n");
+      setpstr(mynum, pstr(mynum) - 2);
+      break;
+    case 4:
+      sillycom("\001s%s\377%s begins to crackle with magical fire.\n\377");
+      bprintf("You crackle with magical fire.\n");
+      setpstr(mynum, pstr(mynum) - 2);
+      break;
     }
- 
- void groancom(void)
-    {
-    sillycom("\001P%s\001\001d groans loudly\n\001");
-    bprintf("You groan\n");
-    }
- 
- void moancom(void)
-    {
-    sillycom("\001P%s\001\001d starts making moaning noises\n\001");
-    bprintf("You start to moan\n");
-    }
- 
- int cancarry(int plyr)
-    {
-    extern long numobs;
-    long a,b;
-    a=0;
-    b=0;
-    if(plev(plyr)>9) return(1);
-    if(plev(plyr)<0) return(1);
-    while(a<numobs)
-       {
-       if((iscarrby(a,plyr))&&(!isdest(a))) b++;
-       a++;
-       }
-    if(b<plev(plyr)+5) return(1);
-    return(0);
-    }
- 
- 
- void setcom(void)
-    {
-    long a,b,c;
-    extern long my_lev;
-    extern char wordbuf[];
-    if(brkword()== -1)
-       {
-       bprintf("set what\n");
-       return;
-       }
-    if(my_lev<10)
-       {
-       bprintf("Sorry, wizards only\n");
-       return;
-       }
-    a=fobna(wordbuf);
-    if(a== -1)
-       {
-         goto setmobile;
-       }
-    if(brkword()== -1)
-       {
-       bprintf("Set to what value ?\n");
-       return;
-       }
-       if(strcmp(wordbuf,"bit")==0) goto bitset;
-       if(strcmp(wordbuf,"byte")==0) goto byteset;
-    b=numarg(wordbuf);
-    if(b>omaxstate(a))
-       {
-       bprintf("Sorry max state for that is %ld\n",omaxstate(a));
-       return;
-       }
-    if(b<0)
-       {
-       bprintf("States start at 0\n");
-       return;
-       }
-    set_state(a,b);
+  }
+}
+
+/* (C) Jim Finnis  (Yes, he really did write one or two routines.) */
+void emotecom()
+{
+  char buf[100];
+
+  if (plev(mynum) < LVL_NECROMANCER && !ptstflg(mynum, pfl(Emote))
+      && pscore(mynum) != 1234 && !ltstflg(ploc(mynum), lfl(Party))) {
+    bprintf("Your emotions are strictly limited!\n");
     return;
-bitset:if(brkword()==-1)
-       {
-       	   bprintf("Which bit ?\n");
-       	   return;
-       	}
-       	b=numarg(wordbuf);
-       	if(brkword()==-1)
-       	{
-       	   bprintf("The bit is %s\n",otstbit(a,b)?"TRUE":"FALSE");
-       	   return;
-       	}
-       	c=numarg(wordbuf);
-       	if((c<0)||(c>1)||(b<0)||(b>15))
-       	{
-       		bprintf("Number out of range\n");
-       		return;
-       	}
-       	if(c==0) oclrbit(a,b);
-       	else osetbit(a,b);
-       	return;
-byteset:if(brkword()==-1)
-       {
-       	   bprintf("Which byte ?\n");
-       	   return;
-       	}
-       	b=numarg(wordbuf);
-       	if(brkword()==-1)
-       	{
-       	   bprintf("Current Value is : %d\n",obyte(a,b));
-       	   return;
-       	}
-       	c=numarg(wordbuf);
-       	if((b<0)||(b>1)||(c<0)||(c>255))
-       	{
-       		bprintf("Number out of range\n");
-       		return;
-       	}
-	osetbyte(a,b,c);
-       	return;       
-setmobile:a=fpbn(wordbuf);
-           if(a==-1)
-           {
-           	bprintf("Set what ?\n");
-           	return;
-           }
-           if(a<16)
-           {
-           	bprintf("Mobiles only\n");
-           	return;
-           }
-           if(brkword()==-1)
-           {
-           	bprintf("To what value ?\n");
-           	return;
-           }
-           b=numarg(wordbuf);
-           setpstr(a,b);
-    }
- 
- 
- 
-int isdark(void)
-    {
-long c;
-extern long curch,my_lev;
-extern long numobs;
-if(my_lev>9) return(0);
-if((curch==-1100)||(curch==-1101)) return(0);
-if((curch<=-1113)&&(curch>=-1123)) goto idk;
-if((curch<-399)||(curch>-300)) return(0);
-idk:c=0;
-while(c<numobs)
-{
-if((c!=32)&&(otstbit(c,13)==0)) {c++;continue;}
-if(ishere(c)) return(0);
-if((ocarrf(c)==0)||(ocarrf(c)==3)) {c++;continue;}
-if(ploc(oloc(c))!=curch) {c++;continue;}
-return(0);
-}
-return(1);
-}
- 
- 
- 
-int modifwthr(int n)
-{
-extern long curch;
-switch(curch)
-{
-default:
-if((curch>=-179)&&(curch<=-199)) 
-{
-	if(n>1)return(n%2);
-	else return(n);
-}
-if((curch>=-178)&&(curch<=-100))
-{
-	if((n==1)||(n==2)) n+=2;
-	return(n);
-}
-return(n);
-}
+  }
+  if (EMPTY(item1)) {
+    bprintf("What do you want to emote?\n");
+    return;
+  }
+  strcpy(buf, "\001P%s\377 ");
+  getreinput(buf + 6);
+  strcat(buf, "\n");
+  sillycom(buf);
+  bprintf("Ok\n");
 }
 
-void setpflags(void)
+/* (C) Rassilon (Brian Preble) */
+void emotetocom()
 {
-	long a,b,c,d;
-	extern long mynum;
-	extern char wordbuf[];
-	if(!ptstbit(mynum,2))
-	{
-		bprintf("You can't do that\n");
-		return;
-	}
-	if(brkword()==-1) 
-	{
-		bprintf("Whose PFlags ?\n");
-		return;
-	}
-	a=fpbn(wordbuf);
-	if(a==-1)
-	{
-		bprintf("Who is that ?\n");
-		return;
-	}
-	if(brkword()==-1)
-	{
-		bprintf("Flag number ?\n");
-		return;
-	}
-	b=numarg(wordbuf);
-	if(brkword()==-1)
-	{
-		bprintf("Value is %s\n",ptstflg(a,b)?"TRUE":"FALSE");
-		return;
-	}
-	c=numarg(wordbuf);
-	if((c<0)||(c>1)||(b<0)||(b>31))
-	{
-		bprintf("Out of range\n");
-		return;
-	}
-	if(c) psetflg(a,b);
-	else pclrflg(a,b);
+  int a;
+
+  if (plev(mynum) < LVL_NECROMANCER && !ptstflg(mynum, pfl(Emote))
+      && !ltstflg(ploc(mynum), lfl(Party))) {
+    bprintf("Your emotions are strictly limited!\n");
+    return;
+  }
+  if (EMPTY(item1)) {
+    bprintf("Emote to who?\n");
+    return;
+  }
+  if ((a = pl1) == -1) {
+    bprintf("No one with that name is playing.\n");
+    return;
+  }
+  if (a == mynum) {
+    bprintf("Good trick, that.\n");
+    return;
+  }
+  if(EMPTY(txt2)) {
+    bprintf("Emote what?\n");
+    return;
+  }
+  sillytp(a, txt2);
+  bprintf("Ok\n");
+}
+
+/* (C) Rassilon (Brian Preble) */
+void echocom()
+{
+  char x[128];
+
+  if (plev(mynum) < LVL_ARCHWIZARD && !ptstflg(mynum, pfl(Echo))) {
+    bprintf("You hear echos.\n");
+    return;
+  }
+  getreinput(x);
+  if (EMPTY(x)) {
+    bprintf("ECHO what?\n");
+    return;
+  }
+  sendsys(pname(mynum), pname(mynum), -10005, ploc(mynum), x);
+  bprintf("Ok\n");
+}
+
+/* (C) Rassilon (Brian Preble) */
+void echoallcom()
+{
+  char x[128], a[128];
+
+  if (plev(mynum) < LVL_ARCHWIZARD && !ptstflg(mynum, pfl(Echo))) {
+    bprintf("You hear echos.\n");
+    return;
+  }
+  getreinput(x);
+  if (EMPTY(x)) {
+    bprintf("Echo what?\n");
+    return;
+  }
+  sprintf(a, "\001c%s\n\377", x);
+  broad(a);
+  bprintf("Ok\n");
+}
+
+/* (C) Rassilon (Brian Preble) */
+void echotocom()
+{
+    int b;
+
+    if (plev(mynum) < LVL_ARCHWIZARD && !ptstflg(mynum, pfl(Echo))) {
+        bprintf("You hear echos.\n");
+        return;
+    }
+    if (EMPTY(item1)) {
+	bprintf("Echo to who?\n");
+	return;
+    }
+    if ((b = pl1) == -1) {
+	bprintf("No one with that name is playing.\n");
+	return;
+    }
+    if (b == mynum) {
+	bprintf("What's the point?\n");
+	return;
+    }
+    if (EMPTY(txt2)) {
+        bprintf("What do you want to echo to them?\n");
+        return;
+    }
+    sendsys(pname(b), pname(mynum), -10007, ploc(mynum), txt2);
+    bprintf("Ok\n");
+}
+
+void praycom()
+{
+  sillycom("\001s%s\377%s falls down and grovels in the dirt.\n\377");
+  bprintf("You fall down and grovel in the dirt.\n");
+}
+
+int cancarry(int plyr)
+{
+  int a;
+  int b = 0;
+
+  if (plev(plyr) >= LVL_WIZARD || plev(plyr) < 0)
+    return 1;
+  for (a = 0; a < numobs; a++)
+    if (iscarrby(a, plyr) && !iswornby(a, plyr) &&
+	!otstbit(a, ofl(Destroyed)))
+      b++;
+  return b < plev(plyr) + 5;
+}
+
+int
+roomdark()
+{
+  int c;
+  int dark = 0;
+
+  if (ltstflg(ploc(mynum), lfl(Dark)))
+    dark = 1;
+
+  /* Do any objects in this location shed light? */
+  if (dark)
+    for (c = 0; c < numobs; c++)
+      if (otstbit(c, ofl(Lit)))
+	if (ishere(c) || ((ocarrf(c) == 1 || ocarrf(c) == 2)
+			  && ploc(oloc(c)) == ploc(mynum)))
+	  dark = 0;
+
+  /* Are any players glowing here? */
+  if (dark)
+    for (c = 0; c < MAX_CHARS; c++)
+      if (!EMPTY(pname(c)) && ploc(c) == ploc(mynum) && ptstflg(c, pfl(Glowing)))
+	dark = 0;
+
+  return dark;
+}
+
+int
+isdark()
+{
+  if (roomdark() && plev(mynum) < LVL_WIZARD)
+    return 1;
+  else
+    return 0;
+}
+
+int
+modifwthr (int n)
+{
+  if (!ltstflg(ploc(mynum), lfl(Cold)))
+    return n == snowing || n == blizzard ? n - 2 : n;
+  else
+    return n == rainy || n == stormy ? n + 2 : n;
 }

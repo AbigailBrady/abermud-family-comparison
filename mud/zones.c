@@ -1,152 +1,138 @@
-#include <stdio.h>
-#include <string.h>
-
-#include "functions.h"
-
 /*
- Zone based name generator
- */
+** Zone based name generator
+*/
 
-struct zone
+#include <strings.h>
+#include "kernel.h"
+#include "macros.h"
+#include "zones.h"
+#include "loctable.h"
+#include "exec.h"
+
+int
+findzone (int x, char *str)
 {
-	char *z_name ;
-	long z_loc ;
-} ;
+  int a, b, c;
 
-typedef struct zone ZONE ;
-
-ZONE zoname[  ]={
-    "LIMBO", 1, "WSTORE", 2, "HOME", 4, "START", 5, "PIT", 6, "WIZROOM", 19, "DEAD", 99,
-    "BLIZZARD", 299, "CAVE", 399, "LABRNTH", 499, "FOREST", 599, "VALLEY", 699, "MOOR", 799,
-    "ISLAND", 899, "SEA", 999, "RIVER", 1049, "CASTLE", 1069, "TOWER", 1099, "HUT", 1101,
-    "TREEHOUSE", 1105, "QUARRY", 2199, "LEDGE", 2299, "INTREE", 2499, "WASTE", 99999
-    } ;
-
- int findzone(int x, char *str)
-    {
-    extern ZONE zoname[] ;
-    long a, b ;
-    long c ;
-    a=0 ;
-    b=0 ;
-    x= -x ;
-    if( x<=0 )
-       {
-       strcpy( str, "TCHAN" ) ;
-       return( 0 ) ;
-       }
-
-    while( a<x )
-       {
-       strcpy( str, zoname[ b ].z_name ) ;
-       c=a ;
-       a=zoname[ b ].z_loc ;
-       b++;
-       }
-    return( x-c ) ;
-    }
-
-long ex_dat[ 7 ] ;
-
- void exits(void)
-    {
-    long a ;
-    extern long my_lev ;
-    long b ;
-    char st[ 64 ];
-    long v ;
-    extern long ex_dat[] ;
-    extern char *dirns[] ;
-    a=0 ;
-    b=0 ;
-    bprintf( "Obvious exits are\n" ) ;
-    while( a<6 )
-       {
-       if( ex_dat[ a ]>=0 )
-          {
-          a++ ;
-          continue ;
-          }
-       if( my_lev<10 )bprintf( "%s\n", dirns[ a ] ) ;
-       else
-          {
-          v=findzone( ex_dat[ a ], st ) ;
-          bprintf( "%s : %s%ld\n", dirns[ a ], st, v ) ;
-          }
-       b=1 ;
-       a++ ;
-       }
-    if( b==0 )bprintf( "None....\n" ) ;
-    }
-
-char *dirns[  ]={"North", "East ", "South", "West ", "Up   ", "Down "} ;
-
- void lodex( FILE *file )
-    {
-    long a ;
-    extern long ex_dat[] ;
-    a=0 ;
-    while( a<6 )
-       {
-       fscanf(file," %ld ",&ex_dat[ a ]);
-       a++ ;
-       }
-    }
- long roomnum(char *str, char *offstr)
-    {
-    long a, b, c ;
-    long d ;
-    extern ZONE zoname[] ;
-    extern char wd_there[];
-    char w[64] ;
-    b=0 ;c=0 ;
-    a=0 ;
-    while( b<99990 )
-       {
-       strcpy( w, zoname[ a ].z_name ) ;lowercase( w ) ;
-       if( !strcmp( w, str ) ) goto fnd1 ;
-       b=zoname[ a ].z_loc ;
-       a++ ;
-       }
-    return( 0 ) ;
-    fnd1: ;
-    c=zoname[ a ].z_loc ;
-    sscanf(offstr,"%ld",&d);
-    if( !strlen( offstr ) ) d=1 ;
-    sprintf(wd_there,"%s %s",str,offstr);
-    if( d==0 ) return( 0 ) ;
-    if( d+b>c ) return( 0 ) ;
-    return( -( d+b ) ) ;
-    }
- void showname( int loc )
-    {
-    extern long my_lev ;
-    char a[64] ;
-    extern char wd_there[];
-    long b ;
-    b=findzone( loc, a ) ;
-    bprintf( "%s%ld", a, b ) ;
-    if( my_lev>9999 )bprintf( "[ %d ]", loc ) ;
-    sprintf(wd_there,"%s %ld",a,b);
-    bprintf( "\n" ) ;
-    }
- void loccom(void)
-    {
-    extern long my_lev ;
-    extern ZONE zoname[] ;
-    long a ;
-    a=0 ;
-if( my_lev<10 )
-{
-bprintf( "Oh go away, thats for wizards\n" ) ;
-return ;
+  x = -x;
+  if (x <= 0) {
+    strcpy(str, "TCHAN");
+    return 0;
+  }
+  for (a = 0, b = 0; a < x; b++) {
+    strcpy(str, zoname[b].z_name);
+    c = a;
+    a = zoname[b].z_loc;
+  }
+  return x - c;
 }
-    bprintf( "\nKnown Location Nodes Are\n\n" ) ;
-    l1:bprintf( "%-20s", zoname[ a].z_name ) ;
-    if( a%4==3 ) bprintf( "\n" ) ;
-    if( zoname[ a++ ].z_loc!=99999 ) goto l1 ;
-    bprintf( "\n" ) ;
+
+void
+exits()
+{
+  int a, v, newch;
+  int drnum, droff;
+  int b = 0;
+  char st[64];
+
+  if (isdark()) {
+    bprintf("It is dark.....\n");
+    return;
+  }
+  bprintf("Obvious exits are:\n");
+  for (a = 0; a < 6; a++) {
+    newch = getexit(ploc(mynum), a);
+    if (newch > 999 && newch < 2000) { /* look through special exits */
+      drnum = newch - 1000;
+      droff = drnum ^ 1;	/* other side */
+      if (!state(drnum))
+	newch = oloc(droff);
     }
+    if (newch >= 0)
+      continue;
+    if (plev(mynum) < LVL_WIZARD)
+      bprintf("%s : %s\n", dirns[a], sdesc(newch));
+    else {
+      v = findzone(newch, st);
+      bprintf("%s : %-45s : %s%d\n", dirns[a], sdesc(newch), st, v);
+    }
+    b = 1;
+  }
+  if (b == 0)
+    bprintf("None....\n");
+}
 
- 
+int
+getroomnum()
+{
+  int a, lr, off;
+  char w[80], *s1;
+  ZONE *p;
 
+  /*  Get room name  */
+  if (brkword() == -1)
+    return(0);
+  /*  Maybe it's a player name?  */
+  strcpy(w, wordbuf);
+  if ((a = fpbn(w)) != -1)
+    return ploc(a);
+  /*  Get room offest  */
+  off = 1;
+  s1 = w;
+  while (1) {
+    if (!*s1) {
+      if (brkword() != -1)
+	off = atoi(wordbuf);
+      break;
+    } else if (isdigit(*s1) || *s1 == '-') {
+      off = abs(atoi(s1));
+      *s1 = '\0';
+      break;
+    } else
+      s1++;
+  }
+  /*  Search zones list  */
+  for (lr = 0, a = 0, p = zoname; a < numzon; a++, p++) {
+    if (strncasecmp(w, p->z_name, strlen(w)) == 0)
+      return(-(lr + off));
+    else
+      lr = p->z_loc;
+  }
+  return(0);
+}
+
+void
+showname(int loc)
+{
+  char a[64];
+  int b;
+
+  if (plev(mynum) < LVL_WIZARD)
+    bprintf("%s\n",sdesc(loc));
+  else {
+    b = findzone(loc, a);
+    bprintf("%s%d", a, b);
+    if (plev(mynum) >= LVL_ARCHWIZARD)
+      bprintf("[ %d ]", loc);
+    bprintf("\n");
+  }
+}
+
+void
+loccom()
+{
+  int a;
+
+  if (plev(mynum) < LVL_WIZARD) {
+    erreval();
+    return;
+  }
+  bprintf("\nKnown Zones Are\n\n");
+  a = 0;
+  for (a = 0; a < numzon; a++) {
+    bprintf("%-20s", zoname[a].z_name);
+    if (a % 4 == 3)
+      bprintf("\n");
+  }
+  bprintf("\n");
+}

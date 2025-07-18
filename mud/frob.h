@@ -1,0 +1,2 @@
+void frobnicate();
+void frobinfile();

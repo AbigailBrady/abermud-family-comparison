@@ -1,0 +1,19 @@
+			 --- General User Commands ---
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mMoving AroundA[0m                   | A[7mCommunicationA[0m
+N E S W U D     GO      JUMP    | MSG       SAY       SHOUT
+LOOK    EXITS   SIT     STAND   | TELL      WISH      CONVERSE
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mItemsA[0m                           | A[7mInformationalA[0m
+GET     DROP    WEAR    REMOVE  | ACTIONS   COUPLES   CREDITS   HELP
+GIVE    STEAL   INVEN   PUT     | INFO      LEVELS    MAXUSER   MUDLIST
+EXAMINE LIGHT   UNLIGHT PLAY    | NEWS      PN        USERS     VALUE
+PUSH    TURN    OPEN    CLOSE   | VERSION   WHO       WIZLIST
+LOCK    UNLOCK  EAT     EMPTY   |
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+A[7mCombatA[0m                          | A[7mUtilityA[0m
+FLEE    KILL    WIELD           | !         BECOME    BUG       COLOR
+                                | QUIT      PROMPT    SAVE	SCORE
+                                | SYSTAT    TIME      TYPO	UPDATE
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+

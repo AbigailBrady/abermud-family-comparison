@@ -1,0 +1,287 @@
+Thu Sep 27 12:42:02 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* tk.c, mudprog.c (ismonitored): If player in DATA/privs/monitored,
+	log everything s/he does.
+
+Wed Sep 19 19:14:48 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* objsys.c (mlobjsat, aobjsat): Don't show contents of containers
+	carried by other players.
+
+Mon Sep 10 20:23:01 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* mudprog.c (setalrm): Fixed shutdown routines.
+
+Sun Aug 26 00:39:08 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* parse.c (tsscom, detach): Limit these commands to local
+	users.
+
+Thu Aug  9 00:23:37 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* mail.c (*): Mail now supports multiple line messages.
+	* tk.c (talker): Support it.
+	* pflags (Mail, CannotMSG): New pflag for mail.
+	(loseme): Close mail and log files if open on exit.
+
+	* flags.c (pflagcom): Allow anyone to check pflags.
+
+	* msghand.{c,h}: Renamed as mail.{c,h}
+
+Wed Aug  8 15:32:00 1990  Dave Shewchun   (mudmaint at mole.ai.mit.edu)
+
+	* condition.c: (condeval): Fixed HASANY condition.  Parameter
+	is now the flag mask, not the flag bit.
+
+	* uaf.c: (diswizards): Minor bug fix so Wizard's sex is
+	properly displayed. :-)
+
+Wed Aug  8 01:02:15 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+        * flags.c: Renamed from showpriv.c.  Contains all flag viewing
+	and editing routines.
+	(pflagcom): Show player flags if no flag specified.
+	Show full details of pflag edit in syslog.
+
+	* weather.c: Use enum types from weather.h.
+	(pflagcom): Moved to flags.c.
+
+Wed Aug  8  0:56:00 1990  Dave Shewchun   (mudmaint at mole.ai.mit.edu)
+
+	* uaf.c (uafdump): Inefficient routine deleted. (findwizards):
+	New function.  Scan the user file and build lists of gods,
+	arch-wizards, wizards, and apprentice wizards. (diswizards):
+	New function. Display a list of wizard names.
+
+Tue Aug  7 18:13:05 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+        * *.awk: New files to generate {p,l}flags{.names,}.h automatically.
+
+	* key.c (keyecho): Fix bug in conditional.
+
+	* msghand.c (msgcom): Display different messages on access
+	failures.  This way, you can disconnect someone's answering
+	machine by making their message file unwritable.  (Also changed
+	the other messages.  ;-) )
+
+Tue Aug  7 00:45:13 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* abermudd.c (reapchild): Use inline.
+
+	* parse.c (eatcom): Eating mushroom works like waybread.
+
+	* uaf.c (uafdump): Replace "int f" with "Boolean show_title".
+
+	* frob.c (frobnicate, frobinfile): Allow MASTERUSER to frob gods.
+
+Mon Aug  6 23:32:00 1990  Dave Shewchun (mudmaint at mole.ai.mit.edu)
+
+	* uaf.c (new_wizlist): New function.  Display wizlist from user file.
+	(uafdump): New function.  Display names from user file in specified
+	level range.
+
+Fri Aug  3 11:11:47 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* parse.c (aliascom): Fixed error trapping.
+	(doaction): Don't allow BECOME, UPDATE or QUIT in a fight.
+
+Wed Jul 25 01:52:33 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* bprintf.c (pbfr): Turn off pr_qcr if not in key_mode.  This
+	prevents extra <cr>'s on some commands.  Removed call to viewsnoop().
+
+	* tk.c (rte): Added call to viewsnoop().  (To work with pr_qcr).
+	(sendamsg): Include prompt when reprinting command line.
+
+Wed Jul 25 00:00:53 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* Removed wimpy mode.  It made combat too easy.  It can be
+	reactivated by adding `wimpy' to the verbs file.
+
+Tue Jul 24 02:25:16 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* uaf.c (initme): Set Zapped to False by default, so that users can
+	always save.
+
+	* actions: Changed actions to say, for example, 'claps' rather than
+	'is clapping'.  It looks better.
+
+Tue Jul 24 01:54:56 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* actions: New action type.  Message actions may contain a text
+	message.  Example: "ask rassilon What do you mean?" produces the
+	output "Rassilon asks you 'What do you mean?'"
+
+	* bootstrap.c (boot_actions): Support it.
+
+	* SAY is now handled by fextern() in objsys.c.
+
+	* mobiles: Set Shazareth to unsummononable.
+
+Mon Jul 23 13:07:08 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* extra.c (valuecom): Don't show value of invisible players.
+
+	* change.c (chvis): Players may not change the visibility of
+	players of the same rank (wizard, arch-wizard, god).
+
+	* bprintf.c (DEBUG): Surround commented debugging code with
+	#ifdef DEBUG ... #endif
+
+Sun Jul 22 18:27:00 1990  Dave Shewchun  (mudmaint at mole.ai.mit.edu)
+
+	* blood.c: added wimpyflee() to cause auto-flee if HP
+	drops below 20.
+
+Fri Jul 20 14:38:14 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* bprintf.c: Arguments to bprintf() commands now end with '\377'
+	or '\002' rather than the previous '\001'.  (Commands still start
+	with '\001', however.)  Commands may be nested.
+
+	All data and source files have been updated to reflect this
+	change.
+
+Thu Jul 19 23:59:59 1990  Dave Shewchun  (mudmaint at mole.ai.mit.edu)
+
+	* verbs: added wimpy verb (number 205)
+
+	* new2.c: wimpycom() to toggle wimpy mode
+
+	* pflags.h: added wimpy flag PFL_WIMPY
+
+Thu Jul 19 12:56:45 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* support.c: Altered addtolog() and mudlog() to use a variable
+	argument list.
+
+Thu Jul 19 11:08:50 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* bprintf.c (dcprnt): New bprintf() command 'N'.
+	(pryou): Prints "you" if receiver is target, otherwise prints
+	player's name.
+
+	* support.c (addtolog): Writes to a log.
+	(mudlog): Call addtolog.
+
+	* parse.c (bugcom, typocom): Call addtolog.
+
+Wed Jul 18 16:43:43 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* weather.c (roomdark): Detect glowing players.
+
+	* pflags.h (PFL_LIT): Player is enlightened. :-)
+
+	* objsys.c (fextern): Hostile actions aren't hostile if
+	they don't have a target.
+
+Tue Jul 17 09:55:13 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* action.c (lisextern): Increased width of columns for longer
+	action names.
+
+        * bootstrap.c (boot_actions): Load action table into memory.
+	* aflags.h: Define action flags.
+	* objsys.c: Support action table.
+
+	* magic.c (sumb): Mortals may not summon mobiles for NO_SUMMON minutes.
+
+	* kernel.h: Defined NO_SUMMON.
+
+	* change.c (chtitle): You may now change other players titles.
+	(chsex, chvis): New routines.
+
+Tue Jul 17 02:02:47 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* Added UNSUMMONABLE pflag as #1, and made NO EXORCISE #23.
+
+	* bootstrap.c: Added support for specifying mobiles' pflags.  Just
+	make the 'sex' number an octal number representing the pflags.
+
+Mon Jul 16 20:23:10 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* exec.c: The database tables can now _nest_.  This doesn't do
+	much at the moment.  It's just there for something I'm planning
+	in the future.
+
+	* database.c: Check for mail *occasionally*.  2 or 3 seconds is
+	too often.
+
+Mon Jul 16 16:31:57 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* condact.h (CHECK_MAIL): Check for mail.
+
+	* database.c: Check for mail every 2 seconds.
+
+Mon Jul 16 15:48:34 1990  Charles Hannum  (mudmaint at mole.ai.mit.edu)
+
+	* mygetpass() now accepts a prompt string, like getpass().
+
+	* Use pwait() directly for the "Press <Return> to continue..."
+	prompt.  The bprintf() code '^AW' has been removed.
+
+	* Won't echo for non-ttys.  It *assumes* (possibly incorrectly)
+	that a non-tty echoes remotely.  This is to avoid the double-echo
+	experienced with the current socket code.  This will eventually
+	be removed.
+
+Mon Jul 16 09:48:38 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+	* msghand.c (checkmail): Checks for new mail and notifies user.
+
+Sat Jul 14 00:50:42 1990  Brian Preble  (rassilon at mole.ai.mit.edu)
+
+        * change.c (chtitle): Change player's title.
+	* objsys.c (savelevel): Does the actual work.
+	* Changed format of MSG output.
+	* New actions: Kvetch, cheer, blink, nudge, pant
+
+Changes since Jabberwock (4.98.3) version:
+
+  I don't guarantee everything is in the list; this is all from memory, and
+  everyone knows my memory is bad. -- Mycroft/Edheler
+
+  * Addition of MUDLIST and NEWS commands
+
+  * Addition of extra locations, objects and mobiles from dagon *except* for
+    the SCICENT.  Also, a new area (the PIRATE zone) is under construction
+    and is not yet connected.  The DUNGEON code, which was being worked on
+    at IthilMUD before it went down, is also present and should probably be
+    removed.  You might want to remove PIRATE for now; I can send the
+    finished version when it's done.
+
+  * Lots of changes to bprintf.c to speed it up; ask me if you want details.
+
+  * setvbuf() in main(), which should speed things up by doing better I/O
+    buffering.  To flush the buffer, call the (new) bflush() routine, in
+    bprintf.c.
+
+  * A couple of new bprintf() codes:
+
+      ^ASxxx^A		Delays output for xxx seconds.  (Note that fixed delays
+			over an InterNet link are really gross and should be
+			removed.)
+
+      ^AW		Displays "Press <Return> to continue..." and wait for
+			said action to occur.
+
+  * Some code has been moved to different source files; notably, such functions
+    as chpwd() and delu2() have been moved to maint.c.
+
+  * New MSG command, mostly contained in msghand.c.  (Needs to be rewritten.)
+
+  * Support in the Makefile for moving the world_file to a different location.
+    You'll want to move it to /tmp/world_file if you normally run over NFS to
+    avoid killing your local net and both machines.
+
+I have a (currently) page-long to-do list for AberMUD.  If anyone would, uh,
+like to help me do some of this stuff (which would be MUCH appreciated), we
+can put AberMUD behind even TinyMUD in resource utilization.
+
+(A note:  If you don't know C, PLEASE do not try to hack on AberMUD!  It's been
+hard enough trying to clean up some of the past garbage!!!)
+
+
+						- Mycroft The Maintainer
+						  (Charles Hannum,
+						   hannum@schubert.psu.edu)

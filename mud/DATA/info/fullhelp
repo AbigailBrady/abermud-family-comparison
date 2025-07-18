@@ -1,0 +1,761 @@
+Originally written by Rassilon, many modifications made by hackers galore.
+^
+COLOR
+
+Enables ANSI color or monochrome.  Fireballs are red, flowers are colored,
+your prompt stands out, etc.  You must have an ANSI compatible terminal
+(an IBM PC, for example) to use this.  Color is optional, but monochrome
+will only highlight a few things.
+^
+MONOCHROME
+
+Disables color.  See COLOR.
+^
+GIVE [item] TO [player]
+
+Gives something to another player/mobile
+^
+BULLETIN
+
+Contains information about game policy, new wizard commands, upcoming
+events, etc.
+^
+SHOW [item]
+
+Gives detailed information about an item.  Meanings of information
+shown are as follows:
+
+Location:	Where the object is.
+State:		Current state of object (worn, full, charged, ...)
+Max State:	The maximum state number.
+Base Value:	How many points is this item worth with 18 people on?
+		     Actual value is: MAX(#players, 18) / 18 * Base Value
+Flannel:	If this is non-zero then object is scenery and can't be moved.
+Damage:		If this is a weapon, how much damage does it do.
+Armor Class:    If this is armor, what percentage does it reduce chance-to-hit?
+Size:		How much space does item take up in pack.
+Properties:	Wearable, weapon, edible, etc.
+Descriptions:	One-line descriptions for each state.
+^
+ALOOF
+
+For those moments when you don't wish to be disturbed by mortals'
+actions.  Prevents HUG, KISS, SLAP, etc. from being used on you.
+Type ALOOF again to disable this.
+^
+SPAWN
+
+Creates a duplicate copy of the universe, including current players,
+and places you in it.  You may experiment freely, and nothing you do
+will have any effect on anyone else.  Type SPAWN again to return to
+the normal universe.
+^
+NORTH
+SOUTH
+EAST
+WEST
+UP
+DOWN
+
+Moves you in the specified direction.
+^
+HEAL [player]
+
+Heals all damage to a player.
+^
+CURE [player]
+
+Cures all ailments of a player.  (Blind, deaf, mute, crippled, ...)
+^
+GO [location]
+
+Move to the specified location.
+Examples: GO WINDOW, GO CAULDRON
+^
+JUMP
+
+Be careful where you jump, lest you fall.
+^
+LOOK
+
+Long description of room with contents and inhabitants.
+^
+EXITS
+
+List obvious exits.  Currently buggy as it doesn't list exits through
+doors.
+^
+STOP
+
+Stop mobiles.  See START.
+^
+START
+
+Start mobiles.  See STOP.
+^
+SHUTDOWN [message]
+
+God command.  Creates a NOLOGIN file with the contents of message.  Kicks
+everyone off and disables logins.
+^
+FOLLOW [player]
+
+Follows a player.  See LOSE.
+^
+LOSE
+
+Stop following someone.
+^
+GET [item/class] <FROM [item]>
+
+Gets an item or all items of the specified class.  See CLASS.  Use the
+<FROM [item]> option to get items from inside another.
+
+Example: GET FOOD FROM SACK = take all food from the sack
+^
+PRAY
+
+Pray to the gods.  Perhaps they'll listen.  Use WISH when you have
+something particular in mind.
+^
+DROP [item/class]
+
+Drops an item or all items of the specified class.  See CLASS.
+^
+IN [room] [command]
+
+Executes "command" as if you were in specified room.  See ROOM and AT.
+
+Example: "in blizzard 84 drop sword" drops the sword at BLIZZARD84
+^
+CLASS
+
+Not a command.  A class is a type of object.  The following classes
+are defined:
+
+	all	 = everything
+	clothing = anything that can be worn (including shields)
+	containers = anything you can put other objects in
+	food	 = anything edible
+	keys	 = anything used as a key
+	weapons	 = all weapons (you may be surprised)
+
+In addition, modifiers and adjectives are allowed in all commands which deal
+with objects.  For example: Suppose there are three robes in the room...
+
+	There is a black robe here.
+	There is a scarlet robe here.
+	There is a green robe here.
+
+If you want the scarlet robe, you could either say "GET SCARLET ROBE",
+"GET SECOND ROBE", or "GET 2ND ROBE".  Numbers must be cardinal and may run
+from "first" (default) to "sixth", they may be abbreviated 1st, 2nd, ...
+^
+WEAR [item]
+
+Wear something.
+^
+REMOVE [item]
+
+Remove something you've worn.
+^
+STEAL [item] FROM [player]
+
+For all those moments when some other player or mobile has something
+you fancy -- just don't get caught at it!
+
+Example: "steal diamond from tom"
+^
+AT [player/mobile] [command]
+
+Executes "command" as if you were with the specified player.  See IN.
+
+Example: "at tom say Boo!" says 'Boo' in whatever room Tom is in
+^
+INVENTORY
+
+List the items you carry.
+^
+PUT [item] IN [item]
+
+Puts an item in another item.
+^
+EXAMINE [item]
+
+Examines something.
+^
+VALUE [item]
+
+Gives the current Point Value of an item.
+^
+LIGHT [item]
+
+Lights something.  You must already have a burning object or be near a
+fire to do so.
+^
+LOCK [item]
+UNLOCK [item]
+
+Locks or unlocks an item.  Usually used on doors.
+^
+OPEN [item]
+CLOSE [item]
+
+Opens or closes an item.  Usually used on containers and doors.
+^
+EAT [item]
+
+Eat food to regain strength.
+^
+DRINK [item]
+
+Drink something.
+^
+PUSH [item/player]
+
+Pushes an item or knocks a player down (sometimes).  If you succesful-
+ly knock  someone down, they  will will be stuck  sitting and  will be
+unable to move until they stand up.
+^
+TURN [item]
+TOUCH [item]
+PULL [item]
+PRESS [item]
+
+Perform the requested action on an object.
+^
+EMPTY [item]
+
+Empties the contents of a container onto the floor.
+^
+EXTINGUISH [item]
+
+Blow out a torch, turn off a lamp, etc.
+^
+SIT
+
+Sit  down and rest.   When  resting, you regain strength   points at a
+faster rate than normal.  However,  you can't move  while sitting.  To
+stand up again, type STAND.
+^
+STAND
+
+Stand up after sitting or being pushed over.  See SIT and PUSH.
+^
+SUMMON [user/mobile/item]
+
+When you absolutely, positively need  him overnight.  Summons a player
+or mobile to your location.  Most mobiles and many players regard this
+as a hostile action.  Wizards  may summon items,  either by name or by
+object number.  This spell is available to Conjurer and above.
+^
+TRANSLOCATE [user/mobile/item]
+
+Same as summon, but without the unpleasant side effect of dropping
+everything.  This spell is available to Necromancer and above.
+See SUMMON.
+^
+SHOUT [msg]
+
+Shout a message to all players, normally used for uttering those nasty
+death threats to  the person  who killed you for  the fourteenth  time
+this week.
+
+Example: "shout You're dead meat, Noid!"
+^
+SAY [msg]
+"[msg]
+'[msg]
+
+Says something to everyone  else in the room.  Assuming   they haven't
+been deafened.   You may abbreviate this to  a double quote  or single
+quote followed immediately by a message.
+
+Example: SAY Hi folks!  What's up?
+^
+TELL [player] [msg]   or   [player] [msg]
+
+Allows you to tell a player something.  Although you really ought only
+to be able to tell something to someone in the same room, we found the
+game as a whole works better with TELL  as it is.  Similary, you could
+argue that WHO is unrealistic,  but the results   of its  absence  are
+simply many "Who's playing?" shouts.
+
+Example: "george How are you doing?"
+^
+CONVERSE
+
+Puts you in converse mode.  While  in  this mode, everything  you type
+will be  treated as a  SAY.    Type two asterisks  (**) on  a  line by
+themselves to return to  the normal prompt.   If you want  to issue  a
+command  without leaving CONVERSE,  precede it  with an asterisk  (*).
+
+Example: "*help converse"
+^
+WISH [msg]
+
+Sends a message to any wizards currently on.  Please  try to solve the
+problem yourself first.  It  is not wise  to meddle  in the affairs of
+wizards, for they get soggy and hard to light. :-)
+^
+HELP  or  HELP [player]  or  HELP [verb]
+
+With no arguments, HELP gives a brief list of  available commands.  If
+a verb is given, detailed help will be shown.   (But  you already know
+that or you wouldn't be reading this. :-)
+
+Use HELP [player] to assist someone else with things that require more
+than one person.  Pushing a heavy statue, for instance.
+^
+LEVELS
+
+List of levels and how many points are required for each.
+^
+USERS
+
+A shortened form of the WHO list.  For Wizards it shows where everyone
+is.  Not very useful for mortals.
+^
+INFO
+
+Gives an introduction to AberMUD.
+^
+CREDITS
+
+Gives credit where credit is do.  Shows authors and major contributors.
+^
+VERSION
+
+Shows current version number.
+^
+SAVE
+
+Saves character's current score and status.  The things you carry and
+wear are not saved.  Remember: Save early, save often.
+^
+SCORE
+
+Display your score, strength, and level.
+^
+BRIEF
+
+Display only short descriptions.  Acts as a toggle.  Typing BRIEF
+again will return you to normal descriptions.
+^
+TIME
+
+Display current time and last reset time.
+^
+BUG [msg]
+
+Report a bug to the game administrator.  If possible, send long bug
+messages via email to rassilon@ai.mit.edu.
+^
+TYPO [msg]
+
+Report a typo to the  game  administrator.  This command automatically
+reports your name and current location.  If the typo  doesn't refer to
+your current room, please tell me where it is.
+^
+!
+
+Repeat last command.
+Repeat last command.
+Repeat last command.
+Repeat last co... BANG!
+Thank you.
+^
+PN
+
+Display the current pronoun values.  Valid pronouns are ME, IT, HIM, HER,
+and THEM (THEM is the last character mentioned, regardless of sex).
+^
+PLAY [item]
+
+Plays a musical instrument.
+^
+CLS
+CLEAR
+
+Clears the screen.
+^
+WIELD [weapon]
+
+Select something as your weapon, for when those nasty people decide to
+brain you.
+^
+KILL [victim] <WITH [weapon]>
+
+Your opportunity to beat mobiles and other players to death.  Use the
+"WITH [weapon]" option to select a new weapon.
+^
+FLEE [direction]
+
+Escapes from a  fight.  Please note  that fleeing  causes you to  drop
+anything that's not being worn or wielded.  You  also  lose 3% of your
+score, but it's better than losing 100% through death by combat.
+^
+RAW [msg]
+
+Broadcast system message to all users.
+^
+ECHO [msg]
+
+Similar to EMOTE, but without your name attached.
+Example: echo The chair bites you.
+^
+ECHOTO [user] [msg]
+
+Same as ECHO, but to specified user.
+^
+ECHOALL [msg]
+
+Same as ECHO, but to all users.
+^
+ACTIONS
+
+Lists various actions you can perform.  Such as HUG, KISS, CUDDLE,
+etc.  You should check this list periodically, as new actions are
+constantly being added.
+^
+SYSTAT
+
+Shows users on the local system.  (Not in AberMUD.)
+^
+SET [item] [state]
+
+Sets the state of on item to  [state].  Usually 0  or 1.  For example,
+the bed in the hermit's hut has an initial state of 0.  When it's been
+examined, the state is changed to 1 to show this.
+
+Usage: SET [mobile] [strength]
+
+Sets mobiles strength.
+
+Usage: SET [item] BIT|BYTE [flagnum] [optional value if setting]
+
+Sets properties on an item.  Currently bitflags are:
+	16	Cannot be located
+	15	Is weapon
+	14	Is container
+	13	Is lit
+	12	Change to state 0 when taken
+	11	Key
+	10	Can extinguish (state 1 = unlit)
+	9	Can light (state 0 = lit)
+	8	Can be worn
+	7	Armor
+	6	Food
+	5	Toggle state when pushed
+	4	Clear state when pushed
+	3	Can lock/unlock (state 2 = locked)
+	2	Can open/close (1 = closed, 0 = open)
+	1	Item is paired in state with the item
+		number which is its number XOR 1
+	0	Destroyed
+
+Current bytes are:
+	1	Armor class
+	0	Weapon damage
+^
+PFLAGS [player] <privilege#> <1/0>
+PRIVS [player] <privilege#> <1/0>
+
+Set/show player's privileges.  If no privilege  is specified, then  all are
+shown.  If the third argument (privilege value) is missing  (1/0), then the
+current status of that privilege will be shown.   A 1 in the third argument
+means "turn pflag on",  0 means "turn pflag  off".  Privilege# is a  number
+from 0 to 31, and the current meanings are:
+
+0	Female				13	May EMOTE
+1	Can not be summoned		14	Possessed
+2	May edit Pflags			15	Aloof
+3	System Operator			16	Blind
+4	No arms				17	Deaf
+5	Color				18	Dumb
+6	No snoop			19	Crippled
+7	Ignoring shouts			20	Assassin (player-slayer)
+8	Brief mode			21	Cannot MSG
+9	Invisible when starting		22	Can change title
+10	Quiet mode			23	Can not be exorcised
+11	May ECHO			24	Glows
+12	Can not be attacked
+^
+LFLAGS
+
+Show flags for current location.
+^
+AWIZ [msg]
+
+Send message to all Arch-Wizards.
+^
+AWIZLOCK
+
+Locks the game allowing only Arch-Wizards to enter.  See AWIZUNLOCK.
+^
+AWIZUNLOCK
+
+Unlocks the game allowing mortals to enter.  See AWIZLOCK.
+^
+DETACH
+
+Puts you into a login shell, whether you are logged into the local
+machine or not.  For privileged users only.
+^
+ZAP [player]
+
+If you're a wizard, it utterly annihilates a character.  Otherwise it
+sends a lightning bolt at your victim.
+^
+EXORCISE [player]
+
+Wizard command.  Kick someone off the game without killing them.
+^
+CRASH
+
+Wizard command.  Crashes the game, forcing all players to save and quit.
+^
+RESET
+
+Reset mobiles and objects (for a new world_file, this needs to be done
+before any mobiles or objects show up).
+^
+STATS [player]
+
+Lists information about a player or mobile.
+^
+DIRECTORY
+
+Lists all objects in the game and their current location.
+^
+ROOM
+
+Room names consist of a zone name (BLIZZARD, VALLEY, etc.) followed by
+a room number.  For example, to teleport to the Temple of Paradise you
+would say "GOTO START 1".  If you leave out the number,  1 is assumed.
+
+Zone names may be abbreviated, and the space can be left out.  Example:
+BLIZZARD 84 could be abbreviated BLIZZARD84, BLI 84, BLI84, or even B84.
+You can also use the room number (in []'s visible to arch-wizards).
+
+See ZONES and LOCATIONS.
+^
+GOTO [room/player]
+
+Teleport to the room or player specified.  See ROOM for room format.
+Example: "goto home 1"
+^
+TIPTOE [room/player]
+
+Identical to GOTO, but doesn't tell anyone you've left or arrived.
+Example: "tiptoe home 1"
+^
+VIS
+
+Become visible.  See CHANGE VIS.
+^
+INVIS
+
+Become invisible.  See CHANGE VIS.
+^
+RESURRECT [item]
+
+Recreates a destroyed object and brings it to your location.
+^
+ZONES
+
+List of zones.
+^
+WAR
+
+Allows fighting in AberMUD.  See PEACE.
+^
+PEACE
+
+Prevents fighting and stops current fights.  See WAR.
+^
+WHO
+
+Show the players on the game, of course certain more powerful beings may
+not wish to show up on the list.
+^
+MOBILES
+
+Shows all mobiles and their locations.
+^
+EMOTE [msg]
+/[msg]
+
+Perform non-standard action in front of all in room.
+
+Example: "emote turns into a duck."
+^
+EMOTETO [user] [msg]
+
+Same as EMOTE, but to a specific person.
+^
+ALIAS [mobile]
+
+Puts you in control of the mobile specified.
+Type QUIT to return to your body.
+^
+BANG
+
+Makes a crash of thunder that all can hear.  This spell is for Warlocks and
+above.
+^
+QUIET
+
+Prevents you from seeing messages in brackets [].
+Type QUIET again to turn messages back on.
+^
+NOSHOUT
+
+For those of you with headaches.  When this is on you won't hear any noisy
+mortals. :-)  Type NOSHOUT again to hear shouts again.
+^
+WIZ
+
+Wizard command.  Sends message to all wizards.
+^
+LOCATIONS
+
+Lists all locations in AberMUD.
+^
+REVIEW
+
+Shows current settings of SETIN, SETOUT, SET...
+^
+WIZLOCK
+
+Locks the game allowing only wizards to enter.  See WIZUNLOCK.
+^
+WIZUNLOCK
+
+Unlocks the game to allow mortals in.  See WIZLOCK.
+^
+CHANGE {VIS, SEX, PASSWD, TITLE}
+
+CHANGE VIS [player] [vis level]
+
+Changes Vis Level.  Vis Level is the current visibility of a player/mobile.
+0 means visible to all.  Any other number means that anyone with a level
+lower than that number can't see the player.
+
+CHANGE SEX [player]
+Toggles player's sex.
+
+CHANGE PASSWD [player]
+Changes player's password.
+
+CHANGE TITLE [player] [title]
+Changes player's title to whatever you wish.  Place %s where you wish the
+name to go.
+
+Example:
+CHANGE TITLE MARS The Indomitable %s
+^
+MWHO
+
+Wizard command.  Lists active mobiles and their titles.
+^
+BECOME [user]
+
+Quit the game and reenter as "user".
+^
+QUIT
+
+Exits the game, saving your character automatically.  All your belong-
+ings will be left where you quit, and should you re-enter the game you
+will be carrying nothing and  be at the  Temple Of Paradise or Village
+Church.
+
+If you're aliased, QUIT returns you to your body.  See ALIAS.
+^
+UPDATE
+
+Quit the game and reenter.  Used after a recompile.
+^
+SUN
+RAIN
+SNOW
+STORM
+BLIZZARD
+HAIL
+
+Change the weather.
+^
+SNOOP [user]
+
+Anything that goes to the user's screen  will be seen by  you.  Useful
+for debugging.  Please try not to spy on people.  It's impolite.   You
+can not snoop on two people at once.
+^
+TRACE [user/mobile]
+
+Keeps you notified of target's  location at  all times.  Type TRACE by
+itself to turn it off. You can not trace two targets at the same time.
+^
+SETIN [msg]
+
+Sets message printed when entering a room.  See REVIEW.
+^
+SETOUT [msg]
+
+Sets message printed when exiting a room.  If you want the direction you left
+in to be printed, put %s somewhere in your string.  See REVIEW.
+
+Example:
+SETOUT says 'To the %s, men!' and wanders off in the wrong direction.
+^
+SETMIN [msg]
+
+Sets message when teleporting into a room.  See REVIEW.
+^
+SETMOUT [msg]
+
+Sets message when teleporting out of a room.  See REVIEW.
+^
+SETVIN [msg]
+
+Sets message when becoming visible.  See REVIEW.
+^
+SETVOUT [msg]
+
+Sets message when becoming invisible.  See REVIEW.
+^
+SETPROMPT [msg]
+
+Sets your prompt.
+^
+MAXUSERS [n]
+
+Sets the maximum number of players allowed in the game at one time.
+Typing MAXUSERS without an argument will give you the current setting.
+^
+NEWS
+
+Display news related to AberMUD.  Unlike BULLETIN, this is available to
+all users.
+^
+POSE
+
+Send any one of about six random `actions' to everyone in a room.  This
+command is for Magicians and above.
+^
+MAIL <player>
+
+Without arguments, displays messages waiting for you.  With arguments,
+records a message to someone who is not currently in the game.
+
+While in mail  mode, everything you  type will be sent to  <player> as
+mail.  Type two  asterisks (**) on  a line by  themselves to return to
+the normal prompt.  If  you want to  issue a  command  without leaving
+MAIL, precede it with an asterisk (*).
+
+Example: "*help mail"
+^
+DELETEUSER [player]
+
+Deletes a player from the game data files.
+^

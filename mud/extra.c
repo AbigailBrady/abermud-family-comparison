@@ -1,512 +1,679 @@
-#include <stdio.h>
-#include <string.h>
+#include "kernel.h"
+#include "locdir.h"
+#include "key.h"
+#include "macros.h"
+#include "objects.h"
+#include "mobiles.h"
+#include "locations.h"
+#include "sendsys.h"
+#include "oflags.h"
+#include "extra.h"
+#include "new1.h"
+#include "new2.h"
+#include "blib.h"
+#include "support.h"
+#include "bprintf.h"
+#include "mud.h"
+#include "exec.h"
+#include "zones.h"
+#include "tk.h"
+#include "parse.h"
 
-#include "files.h"
-#include "functions.h"
+static int jumtb[] = {
+  /* FROM,	TO */
+    -1050,	-662,
+    -1082,	-1053,
+    -1600,	-620,
+/*
+    -4,		RM_PIT1,
+    -5,		RM_PIT1,
+    -2431,	RM_PIT1,
+    -2432,	RM_PIT1,
+    -2433,	RM_PIT1,
+    -2434,	RM_PIT1,
+*/
+    -702,	-2207,
+    -102,	-103,
+    -103,	-102,
+    0, 0
+};
 
-extern char globme[];
-extern char wordbuf[];
-extern long mynum;
-extern long curch;
-extern long my_lev;
-
-
-
-void helpcom(void)
-    {
-extern char wordbuf[];
-extern long curch,mynum;
-extern char globme[];
-extern long my_lev;
-long a;
-char b[128];
-if(brkword()!= -1)
+/*
+** Brian Preble (rassilon@eddie.mit.edu)
+** (Mostly rewritten by Charles Hannum)
+** Gives detailed help on commands (well, fairly detailed)
+*/
+int
+showhelp(char *verb)
 {
-	a=fpbn(wordbuf);
-	if(a== -1)
-	{
-		bprintf("Help who ?\n");
-		return;
-	}
-	if((ploc(a)!=curch))
-	{
-		bprintf("They are not here\n");
-		return;
-	}
-	if(a==mynum)
-	{
-		bprintf("You can't help yourself.\n");
-		return;
-	}
-	if(phelping(mynum)!=-1) 
-	{
-		sprintf(b,"\001c%s\001 has stopped helping you\n",globme);
-		sendsys(pname(a),pname(a),-10011,curch,b);
-		bprintf("Stopped helping %s\n",pname(phelping(mynum)));
-	}
-	setphelping(mynum,a);
-	sprintf(b,"\001c%s\001 has offered to help you\n",globme);
-	sendsys(pname(a),pname(a),-10011,curch,b);
-	bprintf("OK...\n");
+  char line[80];
+  int  scanreturn, prefix;
+  char ch;
+  FILE *fp;
+  long pos;
+
+  if ((fp = openlock(FULLHELP, "r")) == NULL) {
+    bprintf("Someone's editing the help file.\n");
+    return -1;
+  }
+  uppercase(verb);
+  do {
+    do {
+      if ((fgets(line, 80, fp) == NULL)) {
+	fclose(fp);
+	return 0;
+      }
+    } while(strcmp(line, "^\n"));
+    pos = ftell(fp);
+    do {
+      if ((fgets(line, 80, fp) == NULL)) {
+        fclose(fp);
+        return 0;
+      }
+      if (!strcmp(line, "\n"))
+        break;
+      scanreturn = strncmp(line, verb, strlen(verb));
+    } while (scanreturn);
+  } while (scanreturn);
+
+  fseek(fp, pos, 0);
+  prefix = True;
+  while ((fgets(line, 80, fp) != NULL) && strcmp(line, "\n"))
+    if (prefix) {
+      bprintf("\nUsage:\t%s", line);
+      prefix = False;
+    }
+    else
+      bprintf("\t%s", line);
+
+  do {
+    bprintf("%s", line);
+  } while (fgets(line, 80, fp) && strcmp(line, "^\n"));
+
+  bprintf("\n");
+  fclose(fp);
+  return -1;
+}
+
+void
+helpcom()
+{
+  int a;
+
+  if (item1[0])
+    {
+      if (showhelp(item1) == -1)
 	return;
+      if (vichere(&a) == -1)
+	return;
+      if (phelping(mynum) != -1)
+        {
+	  sillytp(a, "stopped helping you.");
+	  bprintf("Stopped helping \001p%s\377.\n", pname(phelping(mynum)));
+        }
+      if (a == mynum)
+        {
+	  bprintf("You are beyond help.\n");
+	  return;
+        }
+      setphelping(mynum, a);
+      sillytp(a, "has offered to help you.");
+      bprintf("Started helping \001p%s\377.\n", pname(phelping(mynum)));
+      return;
     }
-    closeworld();
-    bprintf("\001f%s\001",HELP1);
-    if(my_lev>9)
-       {
-       bprintf("Hit <Return> For More....\n");
-       pbfr();
-       while(getchar()!='\n');
-       bprintf("\001f%s\001",HELP2);
-       }
-    bprintf("\n");
-    if(my_lev>9999)
-       {
-       bprintf("Hit <Return> For More....\n");
-       pbfr();
-       while(getchar()!='\n');
-       bprintf("\001f%s\001",HELP3);
-       }
-    bprintf("\n");
-    }
- 
- void levcom(void)
+  closeworld();
+  bprintf("\n\001f%s\377", HELP1);
+  if (plev(mynum) >= LVL_WIZARD)
     {
-    closeworld();
-    bprintf("\001f%s\001",LEVELS);
+      sig_alon();
+      pwait();
+      sig_aloff();
+      bprintf("\n\001f%s\377", HELP2);
     }
- 
- void valuecom(void)
+  if (plev(mynum) >= LVL_ARCHWIZARD)
     {
-    long a,b;
-    extern char wordbuf[];
-    extern long mynum;
-    if(brkword()== -1)
-       {
-       bprintf("Value what ?\n");
-       return;
-       }
-    b=fobna(wordbuf);
-    if(b== -1)
-       {
-       bprintf("There isn't one of those here.\n");
-       return;
-       }
-    bprintf("%s : %ld points\n",wordbuf,(tscale()*(obaseval(b)))/5);
-    return;
+      sig_alon();
+      pwait();
+      sig_aloff();
+      bprintf("\n\001f%s\377", HELP3);
     }
- void stacom(void)
+  if (plev(mynum) >= LVL_GOD)
     {
-    long a,b;
-    extern long my_lev;    	
-    if(brkword()== -1)
-       {
-       bprintf("STATS what ?\n");
-       return;
-       }
-    if(my_lev<10)
-       {
-       bprintf("Sorry, this is a wizard command buster...\n");
-       return;
-       }
-    a=fobn(wordbuf);
-    if(a== -1)
-       {
-       statplyr();
-       return;
-       }
-    bprintf("\nItem        :%s",oname(a));
-if(ocarrf(a)==3) bprintf(       "\nContained in:%s",oname(oloc(a)));
-else
-{
-    if(ocarrf(a)!=0)bprintf("\nHeld By     :%s",pname(oloc(a)));
-    else
-       {bprintf("\nPosition    :");
-       showname(oloc(a));
+      sig_alon();
+      pwait();
+      sig_aloff();
+      bprintf("\n\001f%s\377", HELP4);
+    }
+  bprintf("Type 'HELP [cmd]' for detailed help on a specific command.\n");
 }
-       }
-    bprintf("\nState       :%d",state(a));
-    bprintf("\nCarr_Flag   :%ld",ocarrf(a));
-    bprintf("\nSpare       :%d",ospare(a));
-    bprintf("\nMax State   :%ld",omaxstate(a));
-    bprintf("\nBase Value  :%ld",obaseval(a));
-    bprintf("\n");
-    }
- void examcom(void)
+
+int
+maxstrength(int p)
+{
+  return (plev(p) * 8 + 50);
+}
+
+int
+ovalue(int ob)
+{
+  return (tscale() * obaseval(ob) / 9);
+}
+
+int
+pvalue(int p)
+{
+  if (p >= MAX_USERS)
+    return (damof(p) * 10 + pstr(p) * 2);
+  else
+    return (plev(p) * plev(p) * plev(p) * 10 + pstr(p) * 2);
+}
+
+void
+valuecom()
+{
+  int a;
+
+  if (((a = fpbns(item1)) != -1) && (pvis(a) <= plev(mynum)))
     {
-    long a,b;
-    FILE *x;
-    char r[88];
-    extern long mynum,curch;
-    extern char globme[],wordbuf[];
-    if(brkword()== -1)
-       {
-       bprintf("Examine what ?\n");
-       return;
-       }
-    a=fobna(wordbuf);
-    if(a== -1)
-       {
-       bprintf("You see nothing special at all\n");
-       return;
-       }
-    switch(a)
-       {
-       case 144:
-          if(obyte(144,0)==0)
-             {
-             osetbyte(144,0,1);
-             bprintf("You take a scroll from the tube.\n");
-ocreate(145);
-             setoloc(145,mynum,1);
-             return;
-             }
-          break;
-       case 145:
-          ;
-          curch= -114;
-          bprintf("As you read the scroll you are teleported!\n");
-          destroy(145);
-          trapch(curch);
-          return;
-       case 101:
-          if(obyte(101,0)==0)
-             {
-             bprintf("You take a key from one pocket\n");
-             osetbyte(101,0,1);
-oclrbit(107,0);
-             setoloc(107,mynum,1);
-             return;
-             }
-          break;
-       case 7:
-          set_state(7,randperc()%3+1);
-          switch(state(7))
-             {
-             case 1:
-                bprintf("It glows red");break;
-             case 2:
-                bprintf("It glows blue");break;
-             case 3:
-                bprintf("It glows green");break;
-                }
-          bprintf("\n");
-          return;
-       case 8:
-          if(state(7)!=0)
-             {
-             if((iscarrby(3+state(7),mynum))&&(otstbit(3+state(7),13)))
-                {
-                bprintf("Everything shimmers and then solidifies into a different view!\n");
-                destroy(8);
-                teletrap(-1074);
-                return;
-       case 85:
-          if(!obyte(83,0))
-             {
-             bprintf("Aha. under the bed you find a loaf and a rabbit pie\n");
-             ocreate(83);ocreate(84);
-             osetbyte(83,0,1);
-             return;
-             }
-          break;
-       case 91:
-          if(!obyte(90,0))
-             {
-             ocreate(90);bprintf("You pull an amulet from the bedding\n");
-             osetbyte(90,0,1);
-             return;
-             }
-          break;
-          }
-       }
+      if (plev(mynum) >= LVL_WIZARD)
+        {
+	  bprintf("%s : %d points\n", pname(a), pvalue(a));
+	  return;
+	}
+      else
+        {
+	  bprintf("Sorry, you can't tell.\n");
+	  return;
+	}
+    }
+  if ((a = fobn(item1)) == -1)
+    {
+      bprintf("It's not here.\n");
+      return;
+    }
+  bprintf("%s : %d points\n", oname(a), ovalue(a));
+}
+
+void
+examcom()
+{
+  int a;
+  FILE *x;
+  char ch;
+  char text[80];
+
+  if (!item1[0])
+    {
+      bprintf("Examine what?\n");
+      return;
+    }
+  if ((a = fpbns(item1)) != -1)
+    {
+      if (pvis(a) < plev(mynum))
+	{
+	  if (ploc(mynum) == ploc(a))
+	    {
+	      sprintf(text, "%s%s", DESCFILE, pname(a));
+	      if ((x = fopen(text, "r")) == NULL)
+		{
+		  bprintf("A typical, run of the mill %s.\n", pname(a));
+		  return;
+		}
+	    }
+	  else
+	    {
+	      bprintf("They aren't here!\n");
+	      return;
+	    }
+	}
+      else
+	{
+	  bprintf("You see nothing special.\n");
+	  return;
+	}
+      fclose(x);
+      closeworld();
+      bprintf("\001f%s\377", text);
+      return;
+    }
+  if ((a = ob1) == -1)
+    {
+      bprintf("You see nothing special.\n");
+      return;
+    }
+  switch (a) {
+  case OBJ_TREE_2:
+    if (obyte(OBJ_TREE_2, 0) == 0)
+      {
+	osetbyte(OBJ_TREE_2, 0, 1);
+	bprintf("You find a door in the tree.\n");
+	setobjstate(OBJ_TREE_2, 0);
+	return;
+      }
     break;
+  case OBJ_DESK:
+    if (obyte(OBJ_DESK, 0) == 0)
+      {
+	osetbyte(OBJ_DESK, 0, 1);
+	bprintf("You find a button hidden in a recess of the desk.\n");
+	create(OBJ_BUTTON);
+	return;
+      }
+    break;
+  case OBJ_THRONE_8:
+    if (obyte(OBJ_THRONE_8, 0) == 0)
+      {
+	osetbyte (OBJ_THRONE_8, 0, 1);
+	bprintf("You find a crown hidden under the throne.\n");
+	create(OBJ_CROWN_1);
+	return;
+      }
+    break;
+  case OBJ_COAT:
+    if (obyte(OBJ_COAT, 0) == 0)
+      {
+	osetbyte (OBJ_COAT, 0, 1);
+	bprintf("You find a coin in the pocket.\n");
+	create(OBJ_COIN);
+	setoloc(OBJ_COIN, mynum, 1);
+	return;
+      }
+    break;
+  case OBJ_TABLE_1:
+    if (obyte(OBJ_TABLE_1, 0) == 0)
+      {
+	osetbyte (OBJ_TABLE_1, 0, 1);
+	bprintf("You find some gauntlets admidst the rubble of this table.\n");
+	create(OBJ_GAUNTLETS);
+	return;
+      }
+    break;
+  case OBJ_PAINTING:
+    if (obyte(OBJ_PAINTING, 0) == 0)
+      {
+	osetbyte (OBJ_PAINTING, 0, 1);
+	bprintf("There was a note behind the painting.\n");
+	create(OBJ_NOTE_1);
+	return;
+      }
+    break;
+  case OBJ_CHAIR:
+    if (obyte(OBJ_CHAIR, 0) == 0)
+      {
+	osetbyte (OBJ_CHAIR, 0, 1);
+	bprintf("A ring was between the cushions of that chair!\n");
+	create(OBJ_RING_4);
+	return;
+      }
+    break;
+  case OBJ_RACK:
+    if (obyte(OBJ_RACK, 0) == 0)
+      {
+	osetbyte (OBJ_RACK, 0, 1);
+	bprintf("You found a scarab in the rack.\n");
+	create(OBJ_SCARAB);
+	return;
+      }
+    break;
+  case OBJ_PAPERS:
+    if (obyte(OBJ_RACK, 0) == 0)
+      {
+	osetbyte (OBJ_PAPERS, 0, 1);
+	bprintf("Among the papers, you find a treaty.\n");
+	create(OBJ_TREATY);
+	return;
+      }
+    break;
+  case OBJ_DESK_1:
+    if (obyte(OBJ_DESK_1, 0) == 0)
+      {
+	osetbyte (OBJ_DESK_1, 0, 1);
+	bprintf("Inside the desk is a beautiful emerald.\n");
+	create(OBJ_EMERALD);
+	return;
+      }
+    break;
+  case OBJ_ALTAR_2:
+    if (obyte(OBJ_ALTAR_2, 0) == 0)
+      {
+	osetbyte (OBJ_ALTAR_2, 0, 1);
+	bprintf("Inside the altar is a statue of a dark elven deity.\n");
+	create(OBJ_STATUE_2);
+	return;
+      }
+    break;
+  case OBJ_MATTRESS:
+    if (obyte(OBJ_MATTRESS, 0) == 0)
+      {
+	osetbyte (OBJ_MATTRESS, 0, 1);
+	bprintf("Hidden under the mattress is a purse.\n");
+	create(OBJ_PURSE);
+	return;
+      }
+    break;
+  case OBJ_TRASH:
+    if (obyte(OBJ_TRASH, 0) == 0)
+      {
+	osetbyte (OBJ_TRASH, 0, 1);
+	bprintf("In the trash is a silver coin.\n");
+	create(OBJ_COIN_2);
+	return;
+      }
+    break;
+  case OBJ_TUBE:
+    if (obyte(OBJ_TUBE, 0) == 0)
+      {
+	osetbyte(OBJ_TUBE, 0, 1);
+	bprintf("You take a scroll from the tube.\n");
+	create(OBJ_SCROLL_1);
+	setoloc(OBJ_SCROLL_1, mynum, 1);
+	return;
+      }
+    break;
+  case OBJ_SCROLL_1:
+    if (iscarrby(OBJ_CUP, mynum))
+      {
+	bprintf("Funny, I thought this was a teleport scroll, but nothing happened.\n");
+	return;
+      }
+    bprintf("As you read the scroll you are teleported!\n");
+    destroy(OBJ_SCROLL_1);
+    trapch(-114);
+    return;
+  case OBJ_ROBE:
+    if (obyte(OBJ_ROBE, 0) == 0)
+      {
+	bprintf("You take a key from one pocket.\n");
+	osetbyte(OBJ_ROBE, 0, 1);
+	create(OBJ_KEY_2);
+	setoloc(OBJ_KEY_2, mynum, 1);
+	return;
+      }
+    break;
+  case OBJ_WAND:
+    if (obyte(OBJ_WAND, 1) != 0)
+      {
+	bprintf("It seems to be charged.");
+	return;
+      }
+    break;
+  case OBJ_BALL:
+    setobjstate(OBJ_BALL, randperc() % 3 + 1);
+    switch (state(OBJ_BALL)) {
+    case 1:
+      bprintf("It glows red.");
+      break;
+    case 2:
+      bprintf("It glows blue.");
+      break;
+    case 3:
+      bprintf("It glows green.");
+      break;
     }
- 
- sprintf(r,"%s%ld",EXAMINES,a);
- x=fopen(r,"r");
- if(x==NULL)
- {
- bprintf("You see nothing special.\n");
- return;
- }
- else
- {while(getstr(x,r))
+    bprintf("\n");
+    return;
+  case OBJ_SCROLL:
+    if (state(OBJ_BALL) != 0)
+      {
+	if (iscarrby(3 + state(OBJ_BALL), mynum)
+	    && otstbit(3 + state(OBJ_BALL), ofl(Lit)))
+	  {
+	    bprintf("Everything shimmers and then solidifies into a different view!\n");
+	    destroy(OBJ_SCROLL);
+	    teletrap(-1074);
+	    return;
+	  }
+      }
+    break;
+  case OBJ_BED:
+    if (!obyte(OBJ_BED, 0))
+      {
+	create(OBJ_LOAF);
+	create(OBJ_PIE);
+	osetbyte(OBJ_BED, 0, 1);
+	if (ishere(OBJ_LOAF) && ishere(OBJ_PIE))
+	  bprintf("Aha!  Under the bed you find a loaf and a rabbit pie.\n");
+	else
+	  bprintf("You find nothing.\n");
+	return;
+      }
+    break;
+  case OBJ_GARBAGE:
+    if (!state(OBJ_GARBAGE))
+      {
+	if (alive(MOB_MAGGOT) != -1)
+	  {
+	    bprintf("In the garbage you find a gold plate... with a maggot on it!\n");
+	    sprintf(text, "A maggot leaps out of the garbage onto %s!\n",
+		    pname(mynum));
+	    sillycom(text);
+	    setploc(MOB_MAGGOT, ploc(mynum));
+	    /* Make sure maggot attacks the right person. */
+	    woundmn(a, 0);
+	  }
+	else
+	  bprintf("In the garbage you find a gold plate with some slime on it.\n");
+	setoloc(OBJ_PLATE_1, ploc(mynum), 0);
+	create(OBJ_PLATE_1);
+	setobjstate(OBJ_GARBAGE, 1);
+	return;
+      }
+    break;
+  case OBJ_BEDDING:
+    if (!obyte(OBJ_AMULET, 0))
+      {
+	create(OBJ_AMULET);
+	bprintf("You pull an amulet from the bedding.\n");
+	osetbyte(OBJ_AMULET, 0, 1);
+	return;
+      }
+    break;
+  case OBJ_BOARSKIN:
+    if (!obyte(OBJ_WHISTLE, 0))
+      {
+	create(OBJ_WHISTLE);
+	bprintf("Under the boarskin you find a silver whistle.\n");
+	osetbyte(OBJ_WHISTLE, 0, 1);
+	return;
+      }
+    break;
+  }
+  if ((x = fopen(OBJECTS, "r")) == NULL || objects[a].o_examine == 0)
     {
-    bprintf("%s\n",r);
+      bprintf("You see nothing special.\n");
+      return;
     }
- fclose(x);
- }
- }
- 
- void statplyr(void)
- {
- extern char wordbuf[];
- long a,b;
- b=fpbn(wordbuf);
- if(b== -1)
- {
- bprintf("Whats that ?\n");
- return;
- }
- bprintf("Name      : %s\n",pname(b));
- bprintf("Level     : %ld\n",plev(b));
- bprintf("Strength  : %ld\n",pstr(b));
- bprintf("Sex       : %s\n",(psex(b)==0)?"MALE":"FEMALE");
- bprintf("Location  : ");
- showname(ploc(b));
- }
- void wizlist(void)
- {
- extern long my_lev;
- if(my_lev<10)
- {
- bprintf("Huh ?\n");
- return;
- }
- closeworld();
- bprintf("\001f%s\001",WIZLIST);
- }
- 
- void incom(void)
- {
- extern long my_lev,curch;
- extern char wordbuf[];
- char st[80],rn[80],rv[80];
- long ex_bk[7];
- extern long ex_dat[];
- long a;
- long x;
- long y;
- FILE *unit;
- a=0;
- if(my_lev<10){bprintf("Huh\n");return;}
- while(a<7)
- {
- ex_bk[a]=ex_dat[a];
- a++;
- }
- if(brkword()== -1)
- {
- bprintf("In where ?\n");
- return;
- }
- strcpy(rn,wordbuf);
- if(brkword()== -1)
- {
- bprintf("In where ?\n");
- return;
- }
- strcpy(rv,wordbuf);
- x=roomnum(rn,rv);
- if(x==0)
- {
- bprintf("Where is that ?\n");
- return;
- }
- getreinput(st);
- y=curch;
- curch=x;
- closeworld();
- unit=openroom(curch,"r");
-if(unit==NULL){curch=y;bprintf("No such room\n");return;}
- lodex(unit);
- fclose(unit);
- openworld();
- gamecom(st);
- openworld();
- if(curch==x)
- {
- a=0;
- while(a<7) {ex_dat[a]=ex_bk[a];a++;}
- }
- curch=y;
- }
- void smokecom(void)
- {
- lightcom();
- }
- 
- void jumpcom(void)
- {
- long a,b;
- extern long jumtb[],mynum,curch;
- extern long my_lev;
- char ms[128];
- extern char globme[];
- a=0;
- b=0;
- while(jumtb[a])
- {
- if(jumtb[a]==curch){b=jumtb[a+1];break;}
- a+=2;
- }
- if(b==0){bprintf("Wheeeeee....\n");
- return;}
- if((my_lev<10)&&((!iscarrby(1,mynum))||(state(1)==0)))
- {
- 	curch=b;
- bprintf("Wheeeeeeeeeeeeeeeee  <<<<SPLAT>>>>\n");
- bprintf("You seem to be splattered all over the place\n");
- loseme();
- crapup("I suppose you could be scraped up - with a spatula");
- }
- sprintf(ms,"\001s%s\001%s has just left\n\001",globme,globme);
- sendsys(globme,globme,-10000,curch,ms);
- curch=b;
- sprintf(ms,"\001s%s\001%s has just dropped in\n\001",globme,globme);
- sendsys(globme,globme,-10000,curch,ms);
- trapch(b);
- }
- 
-long jumtb[]={-643,-633,-1050,-662,-1082,-1053,0,0};
+  fseek(x, objects[a].o_examine, 0);
+  while ((ch = fgetc(x)) != '^')
+    bprintf("%c", ch);
+  fclose(x);
+}
 
-void wherecom(void)
- {
- extern long mynum,curch,my_lev,my_str;
- extern char wordbuf[];
- extern char globme[];
- long cha,rnd;
- extern long numobs;
- if(my_str<10)
- {
- bprintf("You are too weak\n");
- return;
- }
- if(my_lev<10) my_str-=2;
- rnd=randperc();
- cha=10*my_lev;
-if((iscarrby(111,mynum))||(iscarrby(121,mynum))||(iscarrby(163,mynum)))
-   cha=100;
- closeworld();
- if(rnd>cha)
- {
- bprintf("Your spell fails...\n");
- return;
- }
- cha=0;
- if(brkword()== -1)
- {
- bprintf("What is that ?\n");
- return;
- }
- rnd=0;
- while(cha<numobs)
- {
- if(!strcmp(oname(cha),wordbuf))
+void incom()
+{
+  char st[80];
+  int x, y;
+
+  if (plev(mynum) < LVL_WIZARD)
     {
-    rnd=1;
-if(my_lev>9999) bprintf("[%3ld]",cha);
-    bprintf("%16s - ",oname(cha));
-    if((my_lev<10)&&(ospare(cha)== -1)) bprintf("Nowhere\n");
-    else
-       desrm(oloc(cha),ocarrf(cha));
+      erreval();
+      return;
     }
- cha++;
- }
- cha=fpbn(wordbuf);
- if(cha!= -1)
- {
- rnd++;
- bprintf("%s - ",pname(cha));
- desrm(ploc(cha),0);
- }
- if(rnd) return;
- bprintf("I dont know what that is\n");
- }
- 
- void desrm(int loc,int cf)
- {
- extern long my_lev;
- FILE *a;
- FILE *unit;
- long b;
- char/*long*/ x[32*4];
- if((my_lev<10)&&(cf==0)&&(loc>-5))
- {
- bprintf("Somewhere.....\n");
- return;
- }
-if(cf==3){
-bprintf("In the %s\n",oname(loc));
-return;
+  if ((x = getroomnum()) == 0 || !exists(x))
+    {
+      bprintf("Unknown Player Or Room\n");
+      return;
+    }
+  getreinput(st);
+  y = ploc(mynum);
+  setploc(mynum, x);
+  gamecom(st);
+  openworld();
+  setploc(mynum, y);
 }
- if(cf>0)
- {
- bprintf("Carried by \001c%s\001\n",pname(loc));
- return;
- }
- unit=openroom(loc,"r");
- if(unit==NULL)
- {
- bprintf("Out in the void\n");
- return;
- }
- b=0;
- while(b++<7) getstr(unit,x);
- bprintf("%-36s",x);
-if(my_lev>9){bprintf(" | ");showname(loc);;}
-else bprintf("\n");
- fclose(unit);
- }
 
-
-
-void edit_world(void)
+void
+jumpcom()
 {
-	extern long my_lev,numobs;
-	extern char wordbuf[];	
-	extern long ublock[];
-	extern long objinfo[];
-	char a[80],b,c,d;
-	extern long mynum;
-	if(!ptstbit(mynum,5))
+  int a, b, i;
+  char ms[128];
+
+  if (psitting(mynum))
+    {
+      bprintf("You have to stand up first.\n");
+      error();
+      return;
+    }
+  if (ploc(mynum) == -2320)
+    {
+      bprintf("You fall...\n\n\001S2\377");
+      bprintf("             and fall...\n\n\001S2\377");
+      bprintf("                          and fall...\n\n\001S2\377");
+      bprintf("                                       and fall...\n\n\001S2\377");
+      bprintf("                                                    and die.\n");
+      loseme();
+      crapup("You impaled yourself on a construction sign");
+    }
+  for (a = 0, b = 0; jumtb[a]; a += 2)
+    if (jumtb[a] == ploc(mynum))
+      {
+	b = jumtb[a + 1];
+	break;
+      }
+  for (i = OBJ_PIT_1; i <= OBJ_PIT_6; i++)
+    if (oloc(i) == ploc(mynum))
+      break;
+  if ((i <= OBJ_PIT_4 && !state(i)))
+    b = -2429;
+  else if (i <= OBJ_PIT_6 || oloc(OBJ_HOLE_6) == ploc(mynum))
+    b = RM_PIT1;
+  if (b == 0)
+    {
+      bprintf("Wheeeeee....\n");
+      return;
+    }
+  if (iscarrby(OBJ_UMBRELLA, mynum) && state(OBJ_UMBRELLA) != 0)
+    {
+      sprintf(ms, "\001s%s\377%s jumps off the ledge.\n\377",
+	      pname(mynum), pname(mynum));
+      bprintf("You grab hold of the umbrella and fly down like Mary Poppins.\n");
+    }
+  else if (plev(mynum) < LVL_WIZARD)
+    {
+      sprintf(ms, "\001s%s\377%s makes a perfect swan dive off the ledge.\n\377",
+	      pname(mynum), pname(mynum));
+      if (b != RM_PIT1)
 	{
-		bprintf("Must be Game Administrator\n");
-		return;
-	}	
-	if(brkword()==-1)
-	{
-		bprintf("Must Specify Player or Object\n");
-		return;
+	  sendsys(pname(mynum), pname(mynum), SYS_TXT_TO_R, ploc(mynum), ms);
+	  setploc(mynum, b);
+	  bprintf("Wheeeeeeeeeeeeeeeee	 <<<<SPLAT>>>>\n");
+	  bprintf("You seem to be splattered all over the place.\n");
+	  loseme();
+	  crapup("I suppose you could be scraped up with a spatula.");
 	}
-	if(!strcmp(wordbuf,"player")) goto e_player;
-	if(strcmp(wordbuf,"object"))
-	{
-		bprintf("Must specify Player or Object\n");
-		return;
-	}
-	b=getnarg(0,numobs-1);
-	if(b==-1) return;
-	c=getnarg(0,3);
-	if(c==-1) return;
-	d=getnarg(0,0);
-	if(d==-1) return;
-	objinfo[4*b+c]=d;
-        bprintf("Tis done\n");
-        return;
-e_player:b=getnarg(0,47);
-	if(b==-1) return;
-	c=getnarg(0,15);
-	if(c==-1) return;
-	d=getnarg(0,0);
-	if(d==-1) return;
-	ublock[16*b+c]=d;
-        bprintf("Tis done\n");
-        return;
+    }
+  else
+    sprintf(ms, "\001s%s\377%s dives off the ledge and floats down.\n\377",
+	    pname(mynum), pname(mynum));
+  sendsys(pname(mynum), pname(mynum), SYS_TXT_TO_R, ploc(mynum), ms);
+  setploc(mynum, b);
+  if (iscarrby(OBJ_UMBRELLA, mynum))
+    sprintf(ms, "\001s%s\377%s flys down, clutching an umbrella.\n\377",
+	    pname(mynum), pname(mynum));
+  else
+    sprintf(ms, "\001s%s\377%s has just dropped in.\n\377",
+	    pname(mynum), pname(mynum));
+  sendsys(pname(mynum), pname(mynum), SYS_TXT_TO_R, ploc(mynum), ms);
+  trapch(b);
 }
-        
-long getnarg(long bt,long to)
+
+void
+wherecom()
 {
-	extern char wordbuf[];
-	long x;
-	if(brkword()==-1)
-	{
-		bprintf("Missing numeric argument\n");
-		return(-1);
-	}
-	x=numarg(wordbuf);
-	if(x<bt) {bprintf("Invalid range\n");return(-1);}
-	if((to)&&(x>to)) {bprintf("Invalid range\n");return(-1);}
-	return(x);
+  int cha, rnd;
+
+  if (pstr(mynum) < 10)
+    {
+      bprintf("You're too weak to cast any spells.\n");
+      return;
+    }
+  if (plev(mynum) < LVL_WIZARD)
+    setpstr(mynum, pstr(mynum) - 2);
+  rnd = randperc();
+  cha = 6 * plev(mynum);
+  if (iscarrby(OBJ_POWERSTONE, mynum))
+    cha += 12;
+  if (iscarrby(OBJ_POWERSTONE_1, mynum))
+    cha += 12;
+  if (iscarrby(OBJ_POWERSTONE_2, mynum))
+    cha += 12;
+  if (plev(mynum) >= LVL_NECROMANCER)
+    cha = 100;
+  closeworld();
+  if (rnd > cha)
+    {
+      bprintf("Your spell fails.\n");
+      return;
+    }
+  if (!item1[0])
+    {
+      bprintf("What's that?\n");
+      return;
+    }
+  for (cha = 0, rnd = 0; cha < numobs; cha++)
+    {
+      if (EQ(oname(cha), item1)
+	  || (plev(mynum) >= LVL_WIZARD && EQ(oaltname(cha), item1)))
+	if (otstbit(cha, ofl(Unlocatable)) && (plev(mynum) < LVL_GOD))
+	  {
+	    if (!rnd)
+	      bprintf("Strange...  You can't seem to find it.\n");
+	    rnd = 1;
+	  }
+	else
+	  {
+	    rnd = 1;
+	    if (plev(mynum) >= LVL_ARCHWIZARD)
+	      bprintf("[%3d]", cha);
+	    bprintf("%13s:", oname(cha));
+	    if (plev(mynum) < LVL_WIZARD && ospare(cha) == -1)
+	      bprintf(" Nowhere\n");
+	    else
+	      showlocation(cha);
+	  }
+    }
+  if ((cha = pl1) != -1)
+    {
+      rnd++;
+      bprintf("%-15s", pname(cha));
+      showploc(cha);
+    }
+  if (!rnd)
+    bprintf("I don't know what it is.\n");
+}
+
+void
+showploc(int a)
+{
+  if (plev(mynum) < LVL_WIZARD && ploc(a) > -5)
+    {
+      bprintf("Somewhere...\n");
+      return;
+    }
+  if (!exists(ploc(a)))
+    {
+      if (plev(mynum) < LVL_ARCHWIZARD)
+	bprintf("Out in the void\n");
+      else
+	bprintf("NOT IN UNIVERSE[%d]\n", ploc(a));
+      return;
+    }
+  bprintf("%-35s", sdesc(ploc(a)));
+  if (plev(mynum) >= LVL_WIZARD)
+    {
+      bprintf(" | ");
+      showname(ploc(a));
+    }
+  else
+    bprintf("\n");
 }

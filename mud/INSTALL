@@ -1,0 +1,21 @@
+***** PRELIMINARY ***** PRELIMINARY ***** PRELIMINARY ***** PRELIMINARY *****
+
+Instructions for intalling AberMUD 4.100.0:
+
+  1) Uncompress and untar the distribution file:
+
+     zcat AberMUD.4.100.0.tar.Z | tar -xvf -
+
+  2) Edit the list of privileged users:
+
+     vi DATA/priv/prived
+
+  3) Build the abermud executable and socket.
+
+     make abermud socket
+
+  4) Type 'socket' to start it running ...
+
+Enjoy!
+
+					- Mycroft

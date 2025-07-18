@@ -1,0 +1,12 @@
+void pwait(void);
+int seeplayer(int);
+void logcom();
+void pbfr();
+void bflush(void);
+FILE *opensnoop(char *, char *);
+void snoopcom();
+void viewsnoop();
+void snoop_off();
+void setname(int);
+void dcprnt(char *, FILE *);
+void bprintf();

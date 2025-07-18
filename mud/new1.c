@@ -1,1472 +1,710 @@
-#include <stdio.h>
+/*
+** Extensions section 1
+*/
 
-#include "functions.h"
+#include <strings.h>
+#include "kernel.h"
+#include "macros.h"
+#include "objects.h"
+#include "mobiles.h"
+#include "pflags.h"
+#include "oflags.h"
+#include "new1.h"
+#include "new2.h"
+#include "objsys.h"
+#include "parse.h"
+#include "support.h"
+#include "weather.h"
+#include "tk.h"
+#include "mud.h"
+#include "locations.h"
 
-struct player_res
+void flowercom()
 {
-	char *p_name;
-	long p_loc;
-	long p_str;
-	long p_sex;
-	long p_lev;
-};
+    int a;
+    char s[80];
 
-typedef struct player_res PLAYER;
+    if (vichere(&a) == -1)
+	return;
+    sillytp(a, "sends you flowers.\n\n         \001A\033[1;33m\377(*)\n     \001A\033[35m\377*    \001A\033[32m\377|    \001A\033[1;36m\377*\n    \001A\033[32m\377\\|/  \\|/  \\|/\n  \001A\033[0;33m\377 ---------------\001A\033[0m\377");
+    sprintf(s, "You send ~ flowers.\n");
+    pnstring(s, a);
+    bprintf(s);
+}
 
- /*
- Extensions section 1
- */
+void ticklecom()
+{
+    int a;
+    char s[80];
 
-extern char globme[];
-extern char wordbuf[];
- 
- void bouncecom(void)
-    {
-    sillycom("\001s%s\001%s bounces around\n\001");
-    bprintf("B O I N G !!!!\n");
-    }
- 
- void sighcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d sighs loudly\n\001");
-    bprintf("You sigh\n");
-    }
- 
- void screamcom(void)
-    {
-    if(chkdumb()) return;
-    sillycom("\001P%s\001\001d screams loudly\n\001");
-    bprintf("ARRRGGGGHHHHHHHHHHHH!!!!!!\n");
-    }
- 
- /* Door is 6 panel 49
- */
- 
- int ohereandget(long *onm)
-    {
-    long b;
-    extern char wordbuf[];
-    if(brkword()==-1)
-       {
-       bprintf("Tell me more ?\n");
-       return(-1);
-       }
-    openworld();
-    *onm=fobna(wordbuf);
-    if(*onm==-1)
-       {
-       bprintf("There isn't one of those here\n");
-       return(-1);
-       }
-    return(1);
-    }
- 
- int state(int ob)
-    {
-    extern long objinfo[];
-    return(objinfo[4*ob+1]);
-    }
- 
- 
- void opencom(void)
-    {
-    extern long mynum,curch;
-    long a,b;
-    b=ohereandget(&a);
-    if(b==-1) return;
-    switch(a)
-       {
-       case 21:if(state(21)==0) bprintf("It is\n");
-     else bprintf("It seems to be magically closed\n");
-break;
-       case 1:
-          if(state(1)==1)
-             {
-             bprintf("It is!\n");
-             }
-          else
-             {
-             set_state(1,1);
-             bprintf("The Umbrella Opens\n");
-             }
-          break;
-       case 20:
-          bprintf("You can't shift the door from this side!!!!\n");break;
-       default:
-          if(otstbit(a,2)==0)
-             {
-             bprintf("You can't open that\n");
-             return;
-             }
-          if(state(a)==0)
-             {
-             bprintf("It already is\n");
-             return;
-             }
-          if(state(a)==2)
-             {
-             bprintf("It's locked!\n");
-             return;
-             }
-          set_state(a,0);bprintf("Ok\n");
- 
-          }
-    }
- 
- void set_state(int o,int v)
-    {
-    extern long objinfo[];
-    objinfo[4*o+1]=v;
-    if(otstbit(o,1)) objinfo[4*(o^1)+1]=v;
- 
-    }
- 
- void closecom(void)
-    {
-    long a,b;
-    b=ohereandget(&a);
-    if(b==-1) return;
-    switch(a)
-       {
-       case 1:
-          if(state(1)==0) bprintf("It is closed, silly!\n");
-          else
-             {
-             bprintf("Ok\n");
-             set_state(1,0);
-             }
-             break;
-       default:
-          if(otstbit(a,2)==0)
-             {
-             bprintf("You can't close that\n");
-             return;
-             }
-          if(state(a)!=0)
-             {
-             bprintf("It is open already\n");
-             return;
-             }
-          set_state(a,1);
-          bprintf("Ok\n");
-          }
-    }
- 
- void lockcom(void)
-    {
-    long a,b;
-    extern long mynum;
-    b=ohereandget(&a);
-    if(b==-1) return;
-    if(!ohany((1<<11)))
-       {
-       bprintf("You haven't got a key\n");
-       return;
-       }
-    switch(a)
-       {
-       default:
-          if(!otstbit(a,3))
-             {
-             bprintf("You can't lock that!\n");
-             return;
-             }
-          if(state(a)==2)
-             {
-             bprintf("It's already locked\n");
-             return;
-             }
-          set_state(a,2);
-          bprintf("Ok\n");
-          }
-    }
- 
- void unlockcom(void)
-    {
-    long a,b;
-    extern long mynum;
-    b=ohereandget(&a);
-    if(b==-1) return;
-    if(!ohany(1<<11))
-       {
-       bprintf("You have no keys\n");
-       return;
-       }
-    switch(a)
-       {
-       default:
-          if(!otstbit(a,3))
-             {
-             bprintf("You can't unlock that\n");
-             return;
-             }
-          if(state(a)!=2)
-             {
-             bprintf("Its not locked!\n");
-             return;
-             }
-          printf("Ok...\n");
-          set_state(a,1);
-          return;
-          }
-    }
- 
- 
- void wavecom(void)
-    {
-    extern long curch;
-    long a,b;
-    b=ohereandget(&a);
-    if(b==-1) return;
-    switch(a)
-       {
-       case 136:
-          if((state(151)==1)&&(oloc(151)==curch))
-             {
-             set_state(150,0);
-             bprintf("The drawbridge is lowered!\n");
-             return;
-             }
-break ;
-       case 158:
-          bprintf("You are teleported!\n");
-          teletrap(-114);
-          return;
-          }
-    bprintf("Nothing happens\n");
-    }
- 
- void blowcom(void)
-    {
-    extern long my_sco;
-    long a,b;
-    b=ohereandget(&a);
-    if(b== -1) return;
-    bprintf("You can't blow that\n");
-    }
- 
- 
- void putcom(void)
-    {
-    long a,b;
-    extern long my_sco;
-    char ar[128];
-    extern char wordbuf[];
-    extern long curch;
-    long c;
-    b=ohereandget(&a);
-    if(b== -1) return;
-    if(brkword()== -1)
-       {
-       bprintf("where ?\n");
-       return;
-       }
-    if((!strcmp(wordbuf,"on"))||(!strcmp(wordbuf,"in")))
-       {
-       if(brkword()== -1)
-          {
-          bprintf("What ?\n");
-          return;
-          }
-       }
-    c=fobna(wordbuf);
-    if(c== -1)
-       {
-       bprintf("There isn't one of those here.\n");
-       return;
-       }
-    if(c==10)
-       {
-       if((a<4)||(a>6))
-          {
-          bprintf("You can't do that\n");
-          return;
-          }
-       if(state(10)!=2)
-          {
-          bprintf("There is already a candle in it!\n");
-          return;
-          }
-       bprintf("The candle fixes firmly into the candlestick\n");
-       my_sco+=50;
-       destroy(a);
-       osetbyte(10,1,a);
-       osetbit(10,9);
-       osetbit(10,10);
-       if(otstbit(a,13))
-          {
-          osetbit(10,13);
-          set_state(10,0);
-          return;
-          }
-       else
-          {
-          set_state(10,1);
-          oclearbit(10,13);
-          }
-       return;
-       }
-    if(c==137)
-       {
-       if(state(c)==0)
-          {
-          setoloc(a,-162,0);
-          bprintf("ok\n");
-	  return;
-          }
-       destroy(a);
-       bprintf("It dissappears with a fizzle into the slime\n");
-       if(a==108)
-          {
-          bprintf("The soap dissolves the slime away!\n");
-          set_state(137,0);
-          }
-       return;
-       }
-    if(c==193)
-	{
-		bprintf("You can't do that, the chute leads up from here!\n");
-		return;
-	}
-    if(c==192)
-    {
-    	if(a==32)
-    	{
-    		bprintf("You can't let go of it!\n");
-    		return;
-    	}
-    	bprintf("It vanishes down the chute....\n");
-    	sprintf(ar,"The %s comes out of the chute!\n",oname(a));
-    	sendsys("","",-10000,oloc(193),ar);
-    	setoloc(a,oloc(193),0);
-    	return;
-    }
-    	
-    if(c==23)
-       {
-       if((a==19)&&(state(21)==1))
-          {
-          bprintf("The door clicks open!\n");
-          set_state(20,0);
-          return;
-          }
-       bprintf("Nothing happens\n");
-       return;
-       }
-    if(c==a)
-    {
-    	bprintf("What do you think this is, the goon show ?\n");
+    if (vichere(&a) == -1)
+	return;
+    if (a == mynum) {
+	bprintf("You tickle yourself.\n");
 	return;
     }
-    if(otstbit(c,14)==0) {bprintf("You can't do that\n");return;}
-    if(state(c)!=0){bprintf("That's not open\n");return;}
-    if(oflannel(a))
-    {
-    	bprintf("You can't take that !\n");
-    	return;
-    }
-    if(dragget()) return;
-    if(a==32)
-    {
-    	bprintf("You can't let go of it!\n");
-    	return;
-    }
-    setoloc(a,c,3);
-    bprintf("Ok.\n");
-    sprintf(ar,"\001D%s\001\001c puts the %s in the %s.\n\001",globme,oname(a),oname(c));
-    sendsys(globme,globme,-10000,curch,ar);
-    if(otstbit(a,12)) set_state(a,0);
-    if(curch==-1081) 
-    {
-	set_state(20,1);
-	bprintf("The door clicks shut....\n");
-    }    
+    sillytp(a, "tickles you.");
+    sprintf(s, "You tickle ~.\n");
+    pnstring(s, a);
+    bprintf(s);
 }
- 
- void lightcom(void)
-    {
-    extern long mynum,curch;
-    long a,b;
-    b=ohereandget(&a);
-    if(b== -1) return;
-    if(!ohany(1<<13))
-       {
-       bprintf("You have nothing to light things from\n");
-       return;
-       }
-    switch(a)
-       {
-       default:
-          if(!otstbit(a,9))
-             {
-             bprintf("You can't light that!\n");
-             return;
-             }
-          if(state(a)==0)
-             {
-             bprintf("It is lit\n");
-             return;
-             }
-          set_state(a,0);
-          osetbit(a,13);
-          bprintf("Ok\n");
-          }
+
+void petcom()
+{
+    int a;
+    char s[80];
+    static char master = 0;
+
+    if (vichere(&a) == -1)
+	return;
+    if (a == mynum) {
+	switch (master)
+	{case 0:	
+	     bprintf("You begin to pet yourself.\n");
+	     strcpy(s, "\001P%s\377 begins to play with ~self!\n");
+	     pnstring(s, mynum);
+	     sillycom(s);
+	     break;
+	 case 1:case 2:case 3:case 4:
+	     bprintf("You fondle yourself vigorously.\n");
+	     strcpy(s, "\001P%s\377 fondles ~self vigorously.\n");
+	     pnstring(s, mynum);
+	     sillycom(s);
+	     break;
+	 case 5:case 6:case 7:case 8:
+	     bprintf("You're really getting into fondling yourself!\n");
+	     strcpy(s,"\001P%s\377 is fondling ^ genitals madly while "
+			"breathing heavily.\n");
+	     pnstring(s,mynum);
+	     sillycom(s);
+	     break;
+	 case 9:
+	     bprintf("You're about to have an orgasm!!!!!!\n");
+	     sillycom("\001P%s\377 is about to have an orgasm!!!!\n"
+		      "(Quick!  Have your children avert their eyes!)\n");
+	     break;
+	 case 10:
+	     bprintf("You have an orgasm!!!!!!!!!\n"
+		     "God does that feel good!!!!\n"
+		     "You wipe up after yourself.\n");
+	     mudlog(" came.\n");
+	     sillycom("\001P%s\377 just had an orgasm!!  "
+			"Fluid goes everywhere.\n"
+		        "(What a show!)\n");
+	     if (pscore(mynum) < 1234)
+		 setpscore(mynum, 1234);
+	     break;	
+	 case 11:
+	     bprintf("Are you sure?  You're kinda tired.\n");
+	     break;
+	 default:
+	     bprintf("You clean up and relax in anticipation of "
+		     "another round.\n");	
+	     sillycom("\001P%s\377 is going to go at it again, "
+			"me thinks.\n");
+	     master = 0;
+	     return;
+	 }
+	master++;
+	return;
     }
- 
- void extinguishcom(void)
-    {
-    long a,b;
-    b=ohereandget(&a);
-    if(b== -1) return;
-    switch(a)
-       {
-       default:
-          if(!otstbit(a,13))
-             {
-             bprintf("That isn't lit\n");
-             return;
-             }
-          if(!otstbit(a,10))
-             {
-             bprintf("You can't extinguish that!\n");
-             return;
-             }
-          set_state(a,1);
-          oclearbit(a,13);
-          bprintf("Ok\n");
-          }
-    }
- 
- void pushcom(void)
-    {
-    extern long curch;
-    extern char wordbuf[];
-    extern long mynum;
-    long fil;
-    long x;
-    if(brkword()== -1)
-       {
-       bprintf("Push what ?\n");
-       return;
-       }
-    nbutt:    x=fobna(wordbuf);
-    if(x== -1)
-       {
-       bprintf("That is not here\n");
-       return;
-       }
-    switch(x)
-       {
-       case 126:
-          bprintf("The tripwire moves and a huge stone crashes down from above!\n");
-          broad("\001dYou hear a thud and a squelch in the distance.\n\001");
-          loseme();
-          crapup("             S   P    L      A         T           !");
-       case 162:
-          bprintf("A trapdoor opens at your feet and you plumment downwards!\n");
-          curch= -140;trapch(curch);
-          return;
-       case 130:
-          if(state(132)==1)
-             {
-             set_state(132,0);
-             bprintf("A secret panel opens in the east wall!\n");
-             break;
-             }
-          bprintf("Nothing happens\n");
-          break;
-       case 131:
-          if(state(134)==1)
-             {
-             bprintf("Uncovering a hole behind it.\n");
-             set_state(134,0);
-             }
-          break;
-       case 138:
-          if(state(137)==0)
-             {
-             bprintf("Ok...\n");
-             break;
-             }
-          else
-             {
-             bprintf("You hear a gurgling noise and then silence.\n");
-             set_state(137,0);
-             }
-          break;
-       case 146:
-          ;
-       case 147:
-          set_state(146,1-state(146));
-          bprintf("Ok...\n");
-          break;
-       case 30:
-          set_state(28,1-state(28));
-          if(state(28))
-             {
-             sendsys("","",-10000,oloc(28),"\001cThe portcullis falls\n\001");
-             sendsys("","",-10000,oloc(29),"\001cThe portcullis falls\n\001");
-             }
-          else
-             {
-             sendsys("","",-10000,oloc(28),"\001cThe portcullis rises\n\001");
-             sendsys("","",-10000,oloc(29),"\001cThe portcullis rises\n\001");
-             }
-          break;
-       case 149:
-          set_state(150,1-state(150));
-          if(state(150))
-             {
-             sendsys("","",-10000,oloc(150),"\001cThe drawbridge rises\n\001");
-             sendsys("","",-10000,oloc(151),"\001cThe drawbridge rises\n\001");
-             }
-          else
-             {
-             sendsys("","",-10000,oloc(150),"\001cThe drawbridge is lowered\n\001");
-             sendsys("","",-10000,oloc(151),"\001cThe drawbridge is lowered\n\001");
-             }
-          break;
-       case 24:
-          if(state(26)==1)
-             {
-             set_state(26,0);
-             bprintf("A secret door slides quietly open in the south wall!!!\n");
-             }
-          else
-             bprintf("It moves but nothing seems to happen\n");
-          return;
-       case 49:
-          broad("\001dChurch bells ring out around you\n\001");break;
-       case 104:if(ptothlp(mynum)==-1)
-	{
-		bprintf("You can't shift it alone, maybe you need help\n");
-		break;
-	}
-	/* ELSE RUN INTO DEFAULT */
-	goto def2;
-       default:;
-       	  def2:
-          if(otstbit(x,4))
-             {
-             set_state(x,0);
-             oplong(x);
-             return;
-             }
-          if(otstbit(x,5))
-             {
-             set_state(x,1-state(x));
-             oplong(x);
-             return;
-             }
-          bprintf("Nothing happens\n");
-          }
-    }
- 
- void cripplecom(void)
-    {
-    long a,b;
-    extern char globme[];
-    extern long mynum,curch;
-    b=victim(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10101,curch,"");
-    }
- 
- void curecom(void)
-    {
-    long a,b;
-    extern char globme[];
-    extern long mynum,curch;
-    b=vichfb(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10100,curch,"");
-    }
- 
- void dumbcom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[];
-    b=victim(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10102,curch,"");
-    }
- 
- void forcecom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[];
+    sillytp(a, "pats you on the head.");
+    sprintf(s, "You pat ~ on the head.\n");
+    pnstring(s, a);
+    bprintf(s);
+}
+
+void wishcom()
+{
+    char x[128];
     char z[128];
-    b=victim(&a);
-    if(b== -1) return;
-    getreinput(z);
-    sendsys(pname(a),globme,-10103,curch,z);
+    char y[160];
+
+    if (EMPTY(item1)) {
+	bprintf("Wish for what?\n");
+	return;
     }
- 
- void missilecom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[];
-    extern long my_lev;
-    extern long fighting,in_fight;
-    extern long my_sco;
-    char/*long*/ ar[8*4];
-    b=vichfb(&a);
-    if(b== -1) return;
-    sprintf(ar,"%ld",my_lev*2);
-    sendsys(pname(a),globme,-10106,curch,ar);
-    if(pstr(a)-2*my_lev<0)    
-	{
-	bprintf("Your last spell did the trick\n");
-	if(pstr(a)>=0)
-	{
-	/* Bonus ? */
-		if(a<16) my_sco+=(plev(a)*plev(a)*100);
-		else my_sco+=10*damof(a);
-	}
-	setpstr(a,-1); /* MARK ALREADY DEAD */
-	in_fight=0;
-	fighting= -1;
-    }
-    if(a>15) woundmn(a,2*my_lev);
+    strcpy(z, "[");
+    getreinput(x);
+    strcat(z, x);
+    strcat(z, "]\n");
+    sprintf(y, "[Wish from \001p%s\377]\n", pname(mynum));
+    sendsys(pname(mynum), pname(mynum), -10113, ploc(mynum), y);
+    sendsys(pname(mynum), pname(mynum), -10113, ploc(mynum), z);
+    sillycom("\001s%s\377%s begs and grovels to the powers that be.\n\377");
+    bprintf("Ok\n");
 }
- 
- void changecom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[];
-    extern char wordbuf[];
-    if(brkword()== -1)
-       {
-       bprintf("change what (Sex ?) ?\n");
-       return;
-       }
-    if(!!strcmp(wordbuf,"sex"))
-       {
-       bprintf("I don't know how to change that\n");
-       return;
-       }
-    b=victim(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10107,curch,"");
-    if(a<16) return;
-    setpsex(a,1-psex(a));
-    }
- 
- void fireballcom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern long fighting,in_fight;    
-    extern char globme[];
-    extern long my_lev;
-    extern long my_sco;
-    char/*long*/ ar[2*4];
-    b=vichfb(&a);
-    if(b== -1) return;
-    if(mynum==a)
-       {
-       bprintf("Seems rather dangerous to me....\n");
-       return;
-       }
-    sprintf(ar,"%ld",2*my_lev);
-    if(pstr(a)-(a==fpbns("yeti")?6:2)*my_lev<0)
-	{
-	bprintf("Your last spell did the trick\n");
-	if(pstr(a)>=0)
-	{
-	/* Bonus ? */
-		if(a<16) my_sco+=(plev(a)*plev(a)*100);
-		else my_sco+=10*damof(a);
-	}
-	setpstr(a,-1); /* MARK ALREADY DEAD */
-	in_fight=0;
-	fighting= -1;
-    }    
-    sendsys(pname(a),globme,-10109,curch,ar);
-    if(a==fpbns("yeti")) {woundmn(a,6*my_lev);return;}
-    if(a>15) woundmn(a,2*my_lev);
-    }
- 
- void shockcom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[];
-    extern long my_lev;
-    extern long fighting,in_fight;    
-    extern long my_sco;
-    char/*long*/ ar[2*4];
-    b=vichfb(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("You are supposed to be killing other people not yourself\n");
-       return;
-       }
-       if(pstr(a)-2*my_lev<0)
-	{
-	bprintf("Your last spell did the trick\n");
-	if(pstr(a)>=0)
-	{
-	/* Bonus ? */
-		if(a<16) my_sco+=(plev(a)*plev(a)*100);
-		else my_sco+=10*damof(a);
-	}
-	setpstr(a,-1); /* MARK ALREADY DEAD */
-	in_fight=0;
-	fighting= -1;
-    }       
-    sprintf(ar,"%ld",my_lev*2);
-    sendsys(pname(a),globme,-10110,curch,ar);
-    if(a>15) woundmn(a,2*my_lev);
-    }
- 
- void starecom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("That is pretty neat if you can do it!\n");
-       return;
-       }
-    sillytp(a,"stares deep into your eyes\n");
-    bprintf("You stare at \001p%s\001\n",pname(a));
-    }
- 
- void gropecom(void)
-    {
-    extern long mynum;
-    long a,b;
-    extern long isforce;
-    if(isforce){bprintf("You can't be forced to do that\n");return;}
-    b=vichere(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("With a sudden attack of morality the machine edits your persona\n");
-       loseme();
-       crapup("Bye....... LINE TERMINATED - MORALITY REASONS");
-       }
-    sillytp(a,"gropes you");
-    bprintf("<Well what sort of noise do you want here ?>\n");
-    }
 
- void squeezecom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("Ok....\n");
-       return;
-       }
-    if(a== -1) return;
-    sillytp(a,"gives you a squeeze\n");
-    bprintf("You give them a squeeze\n");
-    return;
+int ohereandget(int *onm)
+{
+    if (EMPTY(item1)) {
+	bprintf("Tell me more?\n");
+	return -1;
     }
-
- void kisscom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("Weird!\n");
-       return;
-       }
-    sillytp(a,"kisses you");
-    bprintf("Slurp!\n");
-    }
- 
- void cuddlecom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(mynum==a)
-       {
-       bprintf("You aren't that lonely are you ?\n");
-       return;
-       }
-    sillytp(a,"cuddles you");
-    }
-
- void hugcom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(mynum==a)
-       {
-       bprintf("Ohhh flowerr!\n");
-       return;
-       }
-    sillytp(a,"hugs you");
-    }
- 
- void slapcom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(mynum==a)
-       {
-       bprintf("You slap yourself\n");
-       return;
-       }
-    sillytp(a,"slaps you");
-    }
- 
- void ticklecom(void)
-    {
-    extern long mynum;
-    long a,b;
-    b=vichere(&a);
-    if(b== -1) return;
-    if(a==mynum)
-       {
-       bprintf("You tickle yourself\n");
-       return;
-       }
-    sillytp(a,"tickles you");
-    }
- 
- /* This one isnt for magic */
- 
- long vicbase(long *x)
-    {
-    long a,b;
-    extern char wordbuf[];
-    a0:if(brkword()== -1)
-       {
-       bprintf("Who ?\n");
-       return(-1);
-       }
-    b=(long)openworld();
-    if(!strcmp(wordbuf,"at")) goto a0; /* STARE AT etc */
-    a=fpbn(wordbuf);
-    if(a== -1)
-       {
-       bprintf("Who ?\n");
-       return(-1);
-       }
-    *x=a;
-    return(b);
-    }
- 
- long vichere(long *x)
-    {
-    extern long curch;
-    long a;
-    a=vicbase(x);
-    if(a== -1) return(a);
-    if(ploc(*x)!=curch)
-       {
-       bprintf("They are not here\n");
-       return(-1);
-       }
-    return(a);
-    }
- 
- 
- long vicf2(long *x,int f1)
-    {
-    extern long mynum;
-    long a;
-    extern long my_str,my_lev;
-    extern long curch;
-    long b,i;
-    a=vicbase(x);
-    if(a== -1) return(-1);
-    if(my_str<10)
-       {
-       bprintf("You are too weak to cast magic\n");
-       return(-1);
-       }
-    if(my_lev<10) my_str-=2;
-i=5;
-if(iscarrby(111,mynum)) i++;
-if(iscarrby(121,mynum)) i++;
-if(iscarrby(163,mynum)) i++;
-    if((my_lev<10)&&(randperc()>i*my_lev))
-       {
-       bprintf("You fumble the magic\n");
-       if(f1==1){*x=mynum;bprintf("The spell reflects back\n");}
-       else
-          {
-          return(-1);
-          }
-       return(a);
-       }
- 
-    else
-       {
-       if(my_lev<10)bprintf("The spell succeeds!!\n");
-       return(a);
-       }
-    }
- 
- long vicfb(long *x)
-    {
-    return(vicf2(x,0));
-    }
- long vichfb(long *x)
-    {
-    long a;
-    extern long curch;
-    a=vicfb(x);
-    if(a== -1) return(-1);
-    if(ploc(*x)!=curch)
-       {
-       bprintf("They are not here\n");
-       return(-1);
-       }
-    return(a);
-    }
- 
- long victim(long *x)
-    {
-    return(vicf2(x,1));
-    }
- 
- void sillytp(int per,char *msg)
-    {
-    extern long curch;
-    extern char globme[];
-    char bk[256];
-    if(strncmp(msg,"star",4)==0) 
-      sprintf(bk, "%s%s%s%s%s%s%s","\001s",globme,"\001",globme," ",msg,"\n\001");
-    else
-       sprintf(bk,"%s%s%s%s%s","\001p",globme,"\001 ",msg,"\n");
-    sendsys(pname(per),globme,-10111,curch,bk);
-    }
- 
-long ail_dumb=0;
-long  ail_crip=0;
-long  ail_blind=0;
-long  ail_deaf=0;
- 
- 
- void new1rcv(int isme,int chan,char *to,char *from,int code,char *text)
-    {
-    extern long mynum,my_lev,ail_dumb,ail_crip;
-    extern long ail_deaf,ail_blind;
-    extern long curch,my_sex;
-    extern char globme[];
-    switch(code)
-       {
-       case -10100:
-          if(isme==1) {
-             bprintf("All your ailments have been cured\n");
-             ail_dumb=0;
-             ail_crip=0;
-             ail_blind=0;ail_deaf=0;
-             }
-          break;
-       case -10101:
-          if(isme==1)
-             {
-             if(my_lev<10)
-                {
-                bprintf("You have been magically crippled\n");
-                ail_crip=1;
-                }
- 
-             else
-                bprintf("\001p%s\001 tried to cripple you\n",from);
-             }
-          break;
-       case -10102:
-          if(isme==1)
-             {
-             if(my_lev<10)
-                {
-                bprintf("You have been struck magically dumb\n");
-                ail_dumb=1;
-                }
- 
-             else
-                bprintf("\001p%s\001 tried to dumb you\n",from);
-             }
-          break;
-       case -10103:
-          if(isme==1)
-             {
-             if(my_lev<10)
-                {
-                bprintf("\001p%s\001 has forced you to %s\n",from,text);
-                addforce(text);
-                }
- 
-             else
-                bprintf("\001p%s\001 tried to force you to %s\n",from,text);
-             }
-          else
-          break;
-       case -10104:
-          if(isme!=1)bprintf("\001p%s\001 shouts '%s'\n",from,text);
-          break;
-       case -10105:
-          if(isme==1)
-             {
-             if(my_lev<10)
-                {
-                bprintf("You have been struck magically blind\n");
-                ail_blind=1;
-                }
- 
-             else
-                bprintf("\001p%s\001 tried to blind you\n",from);
-             }
-          break;
-       case -10106:
-          if(iam(from))break;
-          if(curch==chan)
-             {
-             bprintf("Bolts of fire leap from the fingers of \001p%s\001\n",from);
-             if(isme==1)
-                {
-                bprintf("You are struck!\n");
-                wounded(numarg(text));
-                }
- 
-             else
-                bprintf("\001p%s\001 is struck\n",to);
-             }
-          break;
-       case -10107:
-          if(isme==1)
-             {
-             bprintf("Your sex has been magically changed!\n");
-             my_sex=1-my_sex;
-             bprintf("You are now ");
-             if(my_sex)bprintf("Female\n");
-             else
-                bprintf("Male\n");
-             calibme();
-             }
-          break;
-       case -10109:
-          if(iam(from)) break;
-          if(curch==chan)
-             {
-             bprintf("\001p%s\001 casts a fireball\n",from);
-             if(isme==1)
-                {
-                bprintf("You are struck!\n");
-                wounded(numarg(text));
-                }
- 
-             else
-                bprintf("\001p%s\001 is struck\n",to);
-             }
-          break;
-       case -10110:
-          if(iam(from)) break;
-          if(isme==1)
-             {
-             bprintf("\001p%s\001 touches you giving you a sudden electric shock!\n",from);
-             wounded(numarg(text));
-             }
-          break;
-       case -10111:
-          if(isme==1)bprintf("%s\n",text);
-          break;
-       case -10113:
-          if(my_lev>9)bprintf("%s",text);
-          break;
-       case -10120:
-          if(isme==1)
-             {
-             if(my_lev>9)
-                {
-                bprintf("\001p%s\001 tried to deafen you\n",from);
-                break;
-                }
-             bprintf("You have been magically deafened\n");
-             ail_deaf=1;
-             break;
-             }
-          }
-    }
- 
- void destroy(int ob)
-    {
-    osetbit(ob,0);
-    }
- 
- int tscale(void)
-    {
-    long a,b;
-    a=0;
-    b=0;
-    while(b<16)
-       {
-       if(!!strlen(pname(b))) a++;
-       b++;
-       }
-    switch(a)
-       {
-       case 1:
-          return(2);
-       case 2:
-          return(3);
-       case 3:
-          return(3);
-       case 4:
-          return(4);
-       case 5:
-          return(4);
-       case 6:
-          return(5);
-       case 7:
-          return(6);
-       default:
-          return(7);
-          }
-    }
- 
- int chkdumb(void)
-    {
-    extern long ail_dumb;
-    if(!ail_dumb) return(0);
-    bprintf("You are dumb...\n");
-    return(1);
-    }
- 
- int chkcrip(void)
-    {
-    extern long ail_crip;
-    if(!ail_crip) return(0);
-    bprintf("You are crippled\n");
-    return(1);
-    }
-
- int chkblind(void)
-    {
-    extern long ail_blind;
-    if(!ail_blind) return(0);
-    bprintf("You are blind, you cannot see\n");
-    return(1);
-    }
- 
- int chkdeaf(void)
-    {
-    extern long ail_deaf;
-    if(!ail_deaf) return(0);
-    return(1);
-    }
- 
- void wounded(int n)
-    {
-    extern long my_str,my_lev,curch;
-    extern long me_cal;
-    extern long zapped;
-    extern char globme[];
-    char ms[128];
-    if(my_lev>9) return;
-    my_str-=n;
-    me_cal=1;
-    if(my_str>=0) return;
-    closeworld();
-    syslog("%s slain magically",globme);
-    delpers(globme);
-    zapped=1;
     openworld();
-    dumpitems();
-    loseme();
-    sprintf(ms,"%s has just died\n",globme);
-    sendsys(globme,globme,-10000,curch,ms);
-    sprintf(ms,"[ %s has just died ]\n",globme);
-    sendsys(globme,globme,-10113,curch,ms);
-    crapup("Oh dear you just died\n");
+    if ((*onm = ob1) == -1) {
+	bprintf("It isn't here.\n");
+        return -1;
     }
- 
- void woundmn(int mon,int am)
-    {
-    extern long mynum;
-    extern char globme[];
-    long a;
-    long b;
-    char ms[128];
-    a=pstr(mon)-am;
-    setpstr(mon,a);
- 
-    if(a>=0){mhitplayer(mon,mynum);}
- 
-    else
-       {
-       dumpstuff(mon,ploc(mon));
-       sprintf(ms,"%s has just died\n",pname(mon));
-       sendsys(" "," ",-10000,ploc(mon),ms);
-       sprintf(ms,"[ %s has just died ]\n",pname(mon));
-       pname(mon)[0]=0;
-       sendsys(globme,globme,-10113,ploc(mon),ms);
-       }
-    }
- 
- 
- void mhitplayer(int mon,int mn)
-    {
-    extern long curch,my_lev,mynum;
-    long a,b,x[4];
-    extern char globme[];
-    if(ploc(mon)!=curch) return;
-    if((mon<0)||(mon>47)) return;
-    a=randperc();
-    b=3*(15-my_lev)+20;
-if((iswornby(89,mynum))||(iswornby(113,mynum))||(iswornby(114,mynum)))
-       b-=10;
-    if(a<b)
-       {
-       x[0]=mon;
-       x[1]=randperc()%damof(mon);
-       x[2]= -1;
-       sendsys(globme,pname(mon),-10021,ploc(mon),(char *)x);
-       }
- 
-    else
-       {
- 
-       x[0]=mon;
-       x[2]= -1;
-       x[1]= -1;
-       sendsys(globme,pname(mon),-10021,ploc(mon),(char *)x) ;
-       }
-    }
- 
- void resetplayers(void)
-    {
-    extern PLAYER pinit[];
-    long a,b,c;
-    a=16;
-    c=0;
-    while(a<35)
-       {
-       strcpy(pname(a),pinit[c].p_name);
-       setploc(a,pinit[c].p_loc);
-       setpstr(a,pinit[c].p_str);
-       setpsex(a,pinit[c].p_sex);
-       setpwpn(a,-1);
-       setpvis(a,0);
-       setplev(a,pinit[c].p_lev);
-       a++;c++;
-       }
-    while(a<48)
-       {
-       strcpy(pname(a),"");
-       a++;
-       }
-    }
- 
-PLAYER pinit[48]=
-    { "The Wraith",-1077,60,0,-2,"Shazareth",-1080,99,0,-30,"Bomber",-308,50,0,-10,
-    "Owin",-311,50,0,-11,"Glowin",-318,50,0,-12,
-    "Smythe",-320,50,0,-13
-    ,"Dio",-332,50,0,-14
-    ,"The Dragon",-326,500,0,-2,"The Zombie",-639,20,0,-2
-    ,"The Golem",-1056,90,0,-2,"The Haggis",-341,50,0,-2,"The Piper"
-    ,-630,50,0,-2,"The Rat",-1064,20,0,-2
-    ,"The Ghoul",-129,40,0,-2,"The Figure",-130,90,0,-2,
-    "The Ogre",-144,40,0,-2,"Riatha",-165,50,0,-31,
-    "The Yeti",-173,80,0,-2,"The Guardian",-197,50,0,-2
-    ,"Prave",-201,60,0,-400,"Wraith",-350,60,0,-2
-    ,"Bath",-1,70,0,-401,"Ronnie",-809,40,0,-402,"The Mary",-1,50,0,-403,
-    "The Cookie",-126,70,0,-404,"MSDOS",-1,50,0,-405,
-    "The Devil",-1,70,0,-2,"The Copper"
-    ,-1,40,0,-2
-    };
- 
- 
- 
- void wearcom(void)
-    {
-    long a,b;
-    extern long mynum;
-    b=ohereandget(&a);
-    if(b== -1) return/*(-1)*/;
-    if(!iscarrby(a,mynum))
-       {
-       bprintf("You are not carrying this\n");
-       return;
-       }
-    if(iswornby(a,mynum))
-       {
-       bprintf("You are wearing this\n");
-       return;
-       }
-    if(((iswornby(89,mynum))||(iswornby(113,mynum))||(iswornby(114,mynum)))&&
-         ((a==89)||(a==113)||(a==114)))
-         {
-         	bprintf("You can't use TWO shields at once...\n");
-         	return;
-        }
-    if(!canwear(a))
-       {
-       bprintf("Is this a new fashion ?\n");
-       return;
-       }
-    setcarrf(a,2);
-    bprintf("OK\n");
-    }
- 
- void removecom(void)
-    {
-    long a,b;
-    extern long mynum;
-    b=ohereandget(&a);
-    if(b== -1) return;
-    if(!iswornby(a,mynum))
-       {
-       bprintf("You are not wearing this\n");
-       }
-    setcarrf(a,1);
-    }
- 
- void setcarrf(int o,int n)
-    {
-    extern long objinfo[];
-    objinfo[4*o+3]=n;
-    }
- 
- int iswornby(int item, int chr)
-    {
-    if(!iscarrby(item,chr)) return(0);
-    if(ocarrf(item)!=2) return(0);
-    return(1);
-    }
-
- void addforce(char *x)
-    {
-    extern char acfor[];
-    extern long forf;
-    if(forf==1)bprintf("The compulsion to %s is overridden\n",acfor);
-    forf=1;
-    strcpy(acfor,x);
-    }
- 
-long forf=0;
-char acfor[128];
- 
- void forchk(void)
-    {
-    extern long forf;
-    extern char acfor[];
-    extern long isforce;
-    isforce=1;
-    if(forf==1) gamecom(acfor);
-    isforce=0;
-    forf=0;
-    }
- 
-long isforce=0;
- int damof(int n)
-    {
-    switch(n)
-       {
-       case 20:
-case 18:;
-case 19:;
-case 21:;
-case 22:;
-          return(6);
-       case 23:
-          return(32);
-       case 24:
-          return(8);
-       case 28:
-          return(6);
-case 30:return(20);
-case 31:return(14);
-case 32:return(15);
-case 33:return(10);
-       default:
-          return(10);
-          }
-    }
- int canwear(int a)
-    {
-    switch(a)
-       {
-       default:
-          if(otstbit(a,8)) return(1);
-          return(0);
-          }
-    }
- int iam(char *x)
-    {
-    char a[64],b[64];
-    extern char globme[];
-    strcpy(a,x);
-    strcpy(b,globme);
-    lowercase(a);
-    lowercase(b);
-    if(!strcmp(a,b)) return(1);
-    if(strncmp(b,"the ",4)==0)
-       {
-       if(!strcmp(a,b+4)) return(1);
-       }
-    return(0);
-    }
- void deafcom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[64];
-    b=victim(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10120,curch,"");
-    }
- 
-void blindcom(void)
-    {
-    long a,b;
-    extern long mynum,curch;
-    extern char globme[64];
-    b=victim(&a);
-    if(b== -1) return;
-    sendsys(pname(a),globme,-10105,curch,"");
-    }
-
-void teletrap(long newch)
-{
-       extern long curch;
-       char block[200];
-       sprintf(block,"%s%s%s%s%s","\001s",globme,"\001",globme," has left.\n\001");
-       sendsys(globme,globme,-10000,curch,block);
-       curch=newch;
-       sprintf(block,"%s%s%s%s%s","\001s",globme,"\001",globme," has arrived.\n\001");
-       sendsys(globme,globme,-10000,newch,block);
-       trapch(curch);
+    return 1;
 }
 
-void on_flee_event(void)
+void setobjstate(int o, int v)
 {
-	extern long  numobs;
-	extern long mynum;
-	long ct=0;
-	while(ct<numobs)
-	{
-		if((iscarrby(ct,mynum))&&(!iswornby(ct,mynum)))
-		{
-			setoloc(ct,ploc(mynum),0);
-		}
-		ct++;
+    state(o) = v;
+    if (otstbit(o, ofl(Linked)))
+	state(o ^ 1) = v;
+}
+
+void wavecom()
+{
+    if (in_fight) {
+        bprintf("What are you trying to do?  Make 'em die laughing?\n");
+        return;
+    }
+    if (EMPTY(item1)) {
+	sillycom("\001s%s\377%s waves happily.\n\377");
+	bprintf("You wave happily.\n");
+    }
+    switch (ob1) {
+    case -1:
+	return;
+    case OBJ_WAND_1:
+	if ((state(OBJ_BRIDGE_1) == 1) && (oloc(OBJ_BRIDGE_1) == ploc(mynum))) {
+	    setobjstate(OBJ_BRIDGE, 0);
+	    bprintf("The drawbridge is lowered!\n");
+	    return;
 	}
+	break;
+    case OBJ_ROD:
+	if (iscarrby(OBJ_CUP, mynum)) {
+	    bprintf("Something prevents the rod's functioning.\n");
+	    return;
+	}
+	if (obyte(OBJ_ROD, 1) == 3) {
+	    bprintf("The rod crumbles to dust!\n");
+	    destroy(OBJ_ROD);
+	    return;
+	}
+	osetbyte(OBJ_ROD, 1, obyte(OBJ_ROD, 1) + 1);
+	bprintf("You are teleported!\n");
+	teletrap(-114);
+	return;
+    case OBJ_WAND:
+	if (obyte(OBJ_WAND, 1) != 0) {
+	    osetbyte(OBJ_WAND, 1, obyte(OBJ_WAND, 1) - 1);
+	    me_ivct = 30;
+	    setpvis(mynum, 12);
+	    bprintf("You seem to shimmer and blur.\n");
+	    return;
+	}
+    }
+    bprintf("Nothing happens.\n");
 }
+
+void blowcom()
+{
+    int a;
+    char x[80];
+
+    if (ohereandget(&a) == -1)
+	return;
+    if (a == OBJ_BAGPIPES) {
+	broad("\001dA hideous wailing sounds echos all around.\n\377");
+	return;
+    }
+    if (a == OBJ_WHISTLE) {
+	broad("\001dA strange ringing fills your head.\n\377");
+	if (alive(MOB_OTTIMO) != -1) {
+/*   destroy(OBJ_WHISTLE);
+		bprintf("You blew so hard that you destroyed the whistle, but\n");
+*/   bprintf("a small dachshund bounds into the room and leaps on you playfully.\n");
+		sprintf(x, "A small dachshund bounds into the room and leaps on %s playfully.\n", pname(mynum));
+	    sillycom(x);
+	    setploc(MOB_OTTIMO, ploc(mynum));
+	}
+	return;
+    }
+    if (a == OBJ_HORN) {
+	broad("\001dA mighty horn blast echoes around you.\n\377");
+	if (ploc(mynum) >= -999 && ploc(mynum) <= -900 &&
+            obyte(OBJ_EXCALIBUR, 1) == 0) {
+	    setoloc(OBJ_EXCALIBUR, ploc(mynum), 0);
+	    setobjstate(OBJ_EXCALIBUR, 1);
+	    bprintf("A hand breaks through the water holding up the sword Excalibur!\n");
+	    osetbyte(OBJ_EXCALIBUR, 1, 1);
+	}
+	return;
+    }
+    bprintf("You can't blow that.\n");
+}
+
+void putcom()
+{
+    int a;
+    char ar[128];
+    int c;
+
+    if (ohereandget(&a) == -1)
+	return;
+    if (EMPTY(item2)) {
+	bprintf("Where?\n");
+	return;
+    }
+    if ((c = ob2) == -1) {
+	bprintf("It isn't here.\n");
+	return;
+    }
+/***  Generating errors   - DAZ  (Put it back when you're ready
+    if (c == OBJ_TABLE_2) {
+      if (a == OBJ_MAP) {
+	  if (state(OBJ_LADDER_2)) {
+	     bprintf("Nothing happens...\n");
+	  }
+	  else if (state(OBJ_SAIL) == 1) {
+	     bprintf("A ghostly pirate fades into view.  After he carefully studying the map, he\n");
+	     bprintf("goes outside, and sails the ship to a new land...\n");
+	     setobjstate(OBJ_LADDER_2, 1);
+	     setobjstate(OBJ_PLANK_1, 0);
+	     destroy(OBJ_MAP);
+	     }
+	  else {
+	     bprintf("A ghostly pirate fades into view.  After testing the wind carefully, he\n");
+	     bprintf("shakes his head sadly, and fades away.\n");
+	     }
+       }
+    }
+ **************/
+    if (c == OBJ_HOLE_9) {
+      if (state(c) == 1) {
+          if (a == OBJ_RUBY || a == OBJ_SAPPHIRE || a == OBJ_DIAMOND ||
+		    	 a == OBJ_GEM || a == OBJ_GEM_1 || a == OBJ_AMETHYST ||
+		    	 a == OBJ_HOPE) {
+      	     bprintf("The gem clicks into place...\n");
+      	     bprintf("...and the door opens!\n");
+      	     setobjstate(c, 0);
+      	  }
+      	  else {
+	         bprintf ("It doesn't fit!\n");
+	      }
+      }
+      else {
+	 	  bprintf ("Nothing happens.\n");
+      }
+      return;
+    }
+    if (c == OBJ_LAKE) {
+     if (state(c) == 1) {
+        if (a == OBJ_SPONGE) {
+             bprintf("The Sponge seems to miraculously suck up the");
+		     bprintf(" water in the lake!\n");
+             bprintf("It has dried the entire lake...wow!\n");
+             setobjstate(OBJ_LAKE, 0);
+        }
+        else {
+		     bprintf("OK - it gets wet.  Now what?\n");
+        }
+     }
+     else {
+	    bprintf("What lake? It is dried up!\n");
+     }
+     return;
+    }
+	if (a == OBJ_GRASSHOPPER) {
+	  bprintf("\nYou hear an explosion and see a blinding flash of light!\n");
+	  broad("\001dYou hear a loud explosion coming from town.\n\377");
+	  teletrap(RM_HEAVEN1);
+	  if (alive(MOB_WORKMAN)) {
+		setploc(MOB_WORKMAN, RM_VILLAGE12);
+	  }
+	}
+    if (a == OBJ_VASE) {
+      destroy(OBJ_VASE);
+      bprintf("The vase slips out of you hands and crashes to the floor!\n");
+      bprintf("The reverberations caused by the crash cause the ceiling to");
+      bprintf(" cave in!\n");
+      broad("\001dYou hear ambulance sirens in the distance.\n\377");
+      teletrap(RM_HEAVEN1);
+      return;
+    }
+    if (c == OBJ_CANDLESTICK) {
+      if (a != OBJ_CANDLE && a != OBJ_CANDLE_1 && a != OBJ_CANDLE_2) {
+	    bprintf("You can't do that.\n");
+	    return;
+	  }
+	  if (state(OBJ_CANDLESTICK) != 2) {
+		bprintf("There's already a candle in it!\n");
+	    return;
+  	  }
+	  bprintf("The candle fixes firmly into the candlestick.\n");
+	  setpscore(mynum, pscore(mynum) + 50);
+	  destroy(a);
+	  osetbyte(OBJ_CANDLESTICK, 1, a);
+	  osetbit(OBJ_CANDLESTICK, ofl(Lightable));
+	  osetbit(OBJ_CANDLESTICK, ofl(Extinguishable));
+	  if (otstbit(a, ofl(Lit))) {
+	      osetbit(OBJ_CANDLESTICK, ofl(Lit));
+	      setobjstate(OBJ_CANDLESTICK, 0);
+	      return;
+  	  }
+	  setobjstate(OBJ_CANDLESTICK, 1);
+	  oclrbit(OBJ_CANDLESTICK, ofl(Lit));
+	  return;
+    }
+    if (c == OBJ_BALL_1) {
+	if (a == OBJ_WAND && !obyte(a, 1)) {
+	    bprintf("The wand seems to soak up energy.\n");
+	    osetbyte(a, 1, 4);
+	    return;
+	}
+	bprintf("Nothing happens.\n");
+	return;
+    }
+    if (c == OBJ_PIT) {
+	if (state(c) == 0) {
+	    setoloc(a, -162, 0);
+	    bprintf("Ok\n");
+	    return;
+	}
+	destroy(a);
+	bprintf("It dissappears with a fizzle into the slime.\n");
+	if (a == OBJ_SOAP) {
+	    bprintf("The soap dissolves the slime away!\n");
+	    setobjstate(OBJ_PIT, 0);
+	}
+	return;
+    }
+    if (c == OBJ_CHUTE_1) {
+	bprintf("You can't do that, the chute leads up from here!\n");
+	return;
+    }
+    if (c == OBJ_CHUTE) {
+	if (a == OBJ_RUNESWORD) {
+	    bprintf("You can't let go of it!\n");
+	    return;
+	}
+	bprintf("It vanishes down the chute....\n");
+	sprintf(ar, "The %s comes out of the chute.\n", oname(a));
+	sendsys("", "", -10000, oloc(OBJ_CHUTE_1), ar);
+	setoloc(a, oloc(OBJ_CHUTE_1), 0);
+	return;
+    }
+    if (c == OBJ_HOLE) {
+	if (a == OBJ_SCEPTRE && state(OBJ_DOOR_1) == 1) {
+	    setobjstate(OBJ_DOOR, 0);
+	    sprintf(ar, "The door clicks open!\n");
+	    sendsys("", "", -10000, oloc(OBJ_DOOR), ar);
+	    sendsys("", "", -10000, oloc(OBJ_DOOR_1), ar);
+	    return;
+	}
+	bprintf("Nothing happens.\n");
+	return;
+    }
+    if (c == a) {
+	bprintf("What do you think this is, the goon show?\n");
+	return;
+    }
+    if (otstbit(c, ofl(Container)) == 0) {
+	bprintf("You can't do that.\n");
+	return;
+    }
+    if (state(c) != 0) {
+	bprintf("It's not open.\n");
+	return;
+    }
+    if (oflannel(a)) {
+	bprintf("You can't take that!\n");
+	return;
+    }
+    if ((ishere(a)) && (dragget()))
+	return;
+    if (a == OBJ_RUNESWORD) {
+	bprintf("You can't let go of it!\n");
+	return;
+    }
+    if (otstbit(a, ofl(Lit))) {
+	bprintf("I'd try putting it out first!\n");
+	return;
+    }
+    if (!willhold(c, a)) {
+	bprintf("It won't fit.\n");
+	return;
+    }
+    setoloc(a, c, 3);
+    bprintf("Ok\n");
+    sprintf(ar, "\001D%s\377\001c puts the %s in the %s.\n\377",
+    pname(mynum), oname(a), oname(c));
+    sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), ar);
+    if (otstbit(a, ofl(GetFlips)))
+	setobjstate(a, 0);
+    if (ploc(mynum) == -1081 && state(OBJ_DOOR) == 0 && ishere(a)) {
+	setobjstate(OBJ_DOOR, 1);
+	sprintf(ar, "The door clicks shut....\n");
+	sendsys("", "", -10000, oloc(OBJ_DOOR), ar);
+	sendsys("", "", -10000, oloc(OBJ_DOOR_1), ar);
+    }
+}
+
+void lightcom()
+{
+    int a;
+
+    if (ohereandget(&a) == -1)
+	return;
+    if (!ohany(1 << 13)) {
+	  bprintf("You have nothing to light things from.\n");
+	  return;
+    }
+    if ((a == OBJ_THORNS) && (state(a) == 1)) {
+       bprintf("You burn the wall of thorns away!\n");
+       bprintf("Beyond them you see the enterance to a cave.\n");
+       setobjstate(OBJ_THORNS, 0);
+    }
+    if ((a == OBJ_THORNS_1) && (state(a) == 1)) {
+       bprintf("You burn the wall of thorns away!\n");
+       bprintf("Beyond them you see the enterance to a cave.\n");
+       setobjstate(OBJ_THORNS_1, 0);
+    }
+    if (!otstbit(a, ofl(Lightable)))
+	bprintf("You can't light that!\n");
+    else if (otstbit(a, ofl(Lit)))
+	bprintf("It's already lit.\n");
+    else {
+	setobjstate(a, 0);
+	osetbit(a, ofl(Lit));
+	bprintf("Ok\n");
+    }
+}
+
+void extinguishcom()
+{
+  int a;
+
+  if (ohereandget(&a) == -1)
+    return;
+  if (!otstbit(a, ofl(Lit)))
+    bprintf("It's not lit!\n");
+  else if (!otstbit(a, ofl(Extinguishable)))
+    bprintf("You can't extinguish that!\n");
+  else {
+    setobjstate(a, 1);
+    oclrbit(a, ofl(Lit));
+    bprintf("Ok\n");
+  }
+}
+
+void pushcom()
+{
+  int x;
+
+  if (brkword() == -1) {
+    bprintf("Push what?\n");
+    return;
+  }
+  if ((x = fobna(wordbuf)) == -1) {
+    bprintf("That is not here.\n");
+    return;
+  }
+  switch (x) {
+  case OBJ_BUTTON:
+     if (state(OBJ_THRONE_6)==1) {
+    	 bprintf("You hear a grinding sound from near the entrance ");
+     	 bprintf("of these caves.\n");
+    	 setobjstate(OBJ_THRONE_6, 0);
+     }
+     else {
+     	bprintf("You hear a click, but nothing seems to happen.\n");
+	 }
+     return;
+  case OBJ_TRIPWIRE:
+    bprintf("The tripwire moves and a huge stone crashes down from above!\n");
+    broad("\001dYou hear a thud and a squelch in the distance.\n\377");
+    loseme();
+    crapup("             S   P    L      A         T           !");
+  case OBJ_BOOKCASE:
+    if (in_fight) {
+      bprintf("You're too busy to do that right now!\n");
+    } else {
+      bprintf("A trapdoor opens at your feet and you plumment downwards!\n");
+      sillycom("\001P%s\377 disappears through a trapdoor!\n");
+      trapch(-140);
+    }
+    return;
+  case OBJ_BAR:
+    if (state(OBJ_PASSAGE) == 1) {
+      setobjstate(OBJ_PASSAGE_1, 0);
+      bprintf("A secret panel opens in the east wall!\n");
+      break;
+    }
+    bprintf("Nothing happens.\n");
+    break;
+  case OBJ_BOULDER:
+    bprintf("With a mighty heave you manage to move the boulder a few feet\n");
+    if (state(OBJ_HOLE_1) == 1) {
+      bprintf("uncovering a hole behind it.\n");
+      setobjstate(OBJ_HOLE_1, 0);
+    }
+    else {
+      bprintf("covering a hole behind it.\n");
+      setobjstate(OBJ_HOLE_1, 1);
+    }
+    break;
+  case OBJ_MIRROR:
+	bprintf("You swing the mirror aside, ");
+	if (state(OBJ_HOLE_7) == 1) {
+	  bprintf("uncovering a hole behind it.\n");
+	  setobjstate(OBJ_HOLE_7, 0);
+    }
+    else {
+      bprintf("covering a hole behind it.\n");
+      setobjstate(OBJ_HOLE_7, 1);
+    }
+    break;
+  case OBJ_LEVER_1:
+    if (ptothlp(mynum) == -1) {
+      bprintf("It's too stiff.  Maybe you need help.\n");
+      return;
+    }
+    bprintf("Ok\n");
+    if (state(OBJ_PIT) != 0) {
+      sillycom("\001s%s\377%s pulls the lever.\n\377");
+      sendsys("", "", -10000, oloc(OBJ_LEVER_1),
+	      "\001dYou hear a gurgling noise and then silence.\n\377");
+      setobjstate(OBJ_PIT, 0);
+      sendsys("", "", -10000, oloc(OBJ_PIT),
+	      "\001cThere is a muffled click and the slime drains away.\n\377");
+    }
+    break;
+  case OBJ_CURTAINS:
+  case OBJ_CURTAINS_1:
+    setobjstate(OBJ_CURTAINS, 1 - state(OBJ_CURTAINS));
+    bprintf("Ok\n");
+    break;
+  case OBJ_LEVER:
+    setobjstate(OBJ_PORTCULLIS, 1 - state(OBJ_PORTCULLIS));
+    if (state(OBJ_PORTCULLIS)) {
+      sendsys("", "", -10000, oloc(OBJ_PORTCULLIS),
+	      "\001cThe portcullis falls.\n\377");
+      sendsys("", "", -10000, oloc(OBJ_PORTCULLIS_1),
+	      "\001cThe portcullis falls.\n\377");
+    }
+    else {
+      sendsys("", "", -10000, oloc(OBJ_PORTCULLIS),
+	      "\001cThe portcullis rises.\n\377");
+      sendsys("", "", -10000, oloc(OBJ_PORTCULLIS_1),
+	      "\001cThe portcullis rises.\n\377");
+    }
+    break;
+  case OBJ_LEVER_2:
+    setobjstate(OBJ_BRIDGE, 1 - state(OBJ_BRIDGE));
+    if (state(OBJ_BRIDGE)) {
+      sendsys("", "", -10000, oloc(OBJ_BRIDGE),
+	      "\001cThe drawbridge rises.\n\377");
+      sendsys("", "", -10000, oloc(OBJ_BRIDGE_1),
+	      "\001cThe drawbridge rises.\n\377");
+    }
+    else {
+      sendsys("", "", -10000, oloc(OBJ_BRIDGE),
+	      "\001cThe drawbridge is lowered.\n\377");
+      sendsys("", "", -10000, oloc(OBJ_BRIDGE_1),
+	      "\001cThe drawbridge is lowered.\n\377");
+    }
+    break;
+  case OBJ_TORCH:
+    if (state(OBJ_DOOR_2) == 1) {
+      setobjstate(OBJ_DOOR_2, 0);
+      bprintf("A secret door slides quietly open in the south wall!\n");
+    }
+    else
+      bprintf("It moves but nothing seems to happen.\n");
+    return;
+  case OBJ_ROPE:
+    if (obyte(OBJ_ROPE, 1) > 7)
+      bprintf("\001dChurch bells ring out around you.\n\377");
+    else {
+      broad("\001dChurch bells ring out around you.\n\377");
+      osetbyte(OBJ_ROPE, 1, obyte(OBJ_ROPE, 1) + 1);
+      if (obyte(OBJ_ROPE, 1) == 8) {
+	bprintf("A strange ghostly guitarist shimmers briefly before you.\n");
+	setpscore(mynum, pscore(mynum) + 300);
+	broad("\001dA faint ghostly guitar solo floats through the air.\n\377");
+      }
+    }
+    break;
+  case OBJ_DUST:
+    bprintf("Great clouds of dust billow up, causing you to sneeze horribly.\n");
+    bprintf("When you're finished sneezing, you notice a message carved into one wall.\n");
+    broad("\001dA loud sneeze echoes through the land.\n\377");
+    destroy(OBJ_DUST);
+    create(OBJ_KOAN);
+    break;
+  case OBJ_COVER_1:
+    bprintf("You can't seem to get enough leverage to move it.\n");
+    return;
+  case OBJ_COVER:
+    if (ptothlp(mynum) == -1) {
+      bprintf("You try to shift it, but it's too heavy.\n");
+      break;
+    }
+    sillytp(ptothlp(mynum), "pushes the cover aside with your help.");
+    setobjstate(x, 1 - state(x));
+    oplong(x);
+    return;
+  case OBJ_SWITCH:
+    if (state(x)) {
+      bprintf("A hole slides open in the north wall!\n");
+      setobjstate(x,0);
+    }
+    else
+      bprintf("You hear a little 'click' sound.\n");
+    return;
+  case OBJ_VASE:
+    destroy(OBJ_VASE);
+    bprintf("The vase crashes to the floor!\n");
+    bprintf("The reverberations caused by the crash cause the ceiling to");
+    bprintf(" cave in!\n");
+    broad("\001dYou hear ambulance sirens in the distance.\n\377");
+    teletrap(-2700);
+    break;
+  case OBJ_STATUE:
+    if (ptothlp(mynum) == -1) {
+      bprintf("You can't shift it alone, maybe you need help.\n");
+      break;
+    }
+    sillytp(ptothlp(mynum), "pushes the statue with your help.");
+    /* FALLTHROUGH */
+  default:
+    if (otstbit(x, ofl(Pushable))) {
+      setobjstate(x, 0);
+      oplong(x);
+      return;
+    }
+    if (otstbit(x, ofl(PushToggle))) {
+      setobjstate(x, 1 - state(x));
+      oplong(x);
+      return;
+    }
+    bprintf("Nothing happens.\n");
+  }
+}
+
+int vicbase(int *x)
+{
+  int a, b;
+
+  do {
+    if (brkword() == -1) {
+      bprintf("Who?\n");
+      return -1;
+    }
+    b = openworld() != NULL;
+  } while (EQ(wordbuf, "at"));
+  if ((a = fpbn(wordbuf)) == -1) {
+    bprintf("That person isn't playing now.\n");
+    return -1;
+  }
+  *x = a;
+  return b;
+}
+
+

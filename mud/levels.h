@@ -1,0 +1,15 @@
+#define LVL_GUEST	0
+#define LVL_NOVICE	1
+#define LVL_ADVENTURER	2
+#define LVL_HERO	3
+#define LVL_WARRIOR	4
+#define LVL_CHAMPION	5
+#define LVL_CONJURER	6
+#define LVL_MAGICIAN	7
+#define LVL_ENCHANTER	8
+#define LVL_WARLOCK	9
+#define LVL_SORCERER	10
+#define LVL_NECROMANCER	11
+#define LVL_WIZARD	12
+#define LVL_ARCHWIZARD	10000
+#define LVL_GOD		68000

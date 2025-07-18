@@ -1,249 +1,370 @@
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
+/*
+**  Timing event stuff
+*/
 
-#include "files.h"
-#include "functions.h"
+#include <strings.h>
+#include "kernel.h"
+#include "macros.h"
+#include "objects.h"
+#include "mobiles.h"
+#include "sendsys.h"
+#include "pflags.h"
+#include "lflags.h"
+#include "mobile.h"
+#include "support.h"
+#include "blib.h"
+#include "blood.h"
+#include "parse.h"
+#include "exec.h"
 
-void on_timing(void)
+static char sccsid[] = "@(#)mobile.c	4.100.0 (IthilMUD)	6/02/90";
+
+static char *exnam[6] = {
+  "north", "east", "south", "west", "up", "down"
+};
+
+void on_timing()
 {
-	if(randperc()>80) onlook();
+  int ct;
+
+  for (ct = MAX_USERS; ct < MAX_CHARS; ct++) {
+    if (!ptstflg(ct, pfl(Possessed)) && pstr(ct) > 0)
+      consid_move(ct);		/* Maybe move it */
+  }
+  if (randperc() < 20)
+    onlook();
 }
 
-void onlook(void)
-    {
-long a ;
-extern long mynum ;
-chkfight( fpbns( "shazareth" ) ) ;
-if( !iscarrby( 45, mynum ) )chkfight( fpbns( "wraith" ) ) ;
-chkfight( fpbns( "bomber" ) ) ;
-chkfight( fpbns( "owin" ) ) ;
-chkfight( fpbns( "glowin" ) ) ;
-chkfight( fpbns( "smythe" ) ) ;
-chkfight( fpbns( "dio" ) ) ;
-if( !iscarrby( 45, mynum ) ) chkfight( fpbns( "zombie" ) ) ;
-chkfight( fpbns( "rat" ) ) ;
-chkfight( fpbns( "ghoul" ) ) ;
-chkfight( fpbns( "ogre" ) ) ;
-chkfight( fpbns( "riatha" ) ) ;
-chkfight( fpbns( "yeti" ) ) ;
-chkfight( fpbns( "guardian"));
-if( iscarrby( 32, mynum ) ) dorune(  ) ;
-if(phelping(mynum)!=-1) helpchkr();
-    }
- 
- void chkfight( int x )
-    {
-    extern long curch ;
-    extern long mynum ;
-    if( x<0 ) return ; /* No such being */
-    consid_move( x); /* Maybe move it */
-    if( !strlen( pname( x ) ) ) return ;
-    if( ploc( x )!=curch ) return ;
-    if( pvis( mynum ) ) return ; /* Im invis */
-    if(randperc()>40) return;
-if( ( x==fpbns( "yeti" ) )&&( ohany( ( 1<<13 ) ) ) )
+/*
+**  Look and timing fight controller
+*/
+void onlook()
 {
-return ;
+  int i;
+
+  for (i = MAX_USERS; i < MAX_CHARS; i++)
+    chkfight(i);
+  if (iscarrby(OBJ_RUNESWORD, mynum))
+    dorune();
+  if (phelping(mynum) != -1)
+    helpchkr();
 }
-    mhitplayer( x, mynum ) ;
-    }
- 
- void consid_move(int x)
- {;}
- 
- void crashcom(void)
-    {
-    extern long my_lev ;
-    if( my_lev<10 )
-       {
-       bprintf( "Hmmm....\n" ) ;
-       bprintf( "I expect it will sometime\n" ) ;
-       return ;
-       }
-    bprintf( "Bye Bye Cruel World...\n" ) ;
-    sendsys( "", "", -666, 0, "" ) ;
-    rescom(  ) ;
-    }
- 
- void singcom(void)
-    {
-    if( chkdumb(  ) ) return ;
-    sillycom( "\001P%s\001\001d sings in Gaelic\n\001" ) ;
-    bprintf( "You sing\n" ) ;
-    }
- 
- void spraycom(void)
-    {
-    long a, b ;
-    long c ;
-    char bk[ 128 ] ;
-    extern char/*long*/ wordbuf[  ] ;
-    extern long mynum ;
-    extern long curch ;
-    b=vichere( &a ) ;
-    if( b== -1 ) return ;
-    if( brkword(  )== -1 )
-       {
-       bprintf( "With what ?\n" ) ;
-       return ;
-       }
-    if( !strcmp( wordbuf, "with" ) )
-       {
-       if( brkword(  )== -1 )
-          {
-          bprintf( "With what ?\n" ) ;
-          return ;
-          }
-       }
-    c=fobna( wordbuf ) ;
-    if( c== -1 )
-       {
-       bprintf( "With what ?\n" ) ;
-       return ;
-       }
-    switch( c )
-       {
-       default:
-          bprintf( "You can't do that\n" ) ;
-          break ;
-          }
-    return ;
-    }
- 
- /* More new stuff */
- 
- void dircom(void)
-    {
-    long a ;
-    char b[ 40 ] ;
-    char d[ 60/*40*/ ] ;
-    long c ;
-    extern long my_lev ;
-    extern long numobs ;
-    if( my_lev<10 )
-       {
-       bprintf( "That's a wiz command\n" ) ;
-       return ;
-       }
-    a=0 ;
-    while( a<numobs )
-       {
-       c=findzone( oloc( a ), b ) ;
-       sprintf( d, "%s%ld", b, c ) ;
-       if( ocarrf( a ) ) strcpy( d, "CARRIED" ) ;
-       if( ocarrf( a )==3 ) strcpy( d, "IN ITEM" ) ;
-       bprintf( "%-13s%-13s", oname( a ), d ) ;
-       if( a%3==2 )bprintf( "\n" ) ;
-       if( a%18==17 ) pbfr(  ) ;
-       a++ ;
-       }
-    bprintf( "\n" ) ;
-    }
- 
- void sys_reset(void)
-    {
-    extern long my_lev ;
-    char xx[ 128 ] ;
-    FILE *fl ;
-    long t, u ;
-    if( tscale(  )!=2 )
-       {
-       bprintf( "There are other people on.... So it wont work!\n" ) ;
-       return ;
-       }
-    time( &t ) ;
-    fl=openlock( RESET_N, "ruf" ) ;
-    if(fl==NULL) goto errk;
-    fscanf( fl, "%ld", &u ) ;
-    fclose(fl ) ;
-    if( ( t-u<( 3600 ) )&&( u<t ) )
-       {
-       bprintf( "Sorry at least an hour must pass between resets\n" ) ;
-       return ;
-       }
-errk:t=my_lev ;
-    my_lev=10 ;
-    rescom(  ) ;
-    my_lev=t ;
-    }
- 
- 
- void dorune(void)
-    {
-    char bf[ 128 ] ;
-    long ct ;
-    extern long mynum, my_lev, curch ;
-    extern long in_fight;
-    if(in_fight) return;
-    ct=0 ;
-    while( ct<32 )
-       {
-       if( ct==mynum ){ct++ ;continue ;}
-       if( !strlen( pname( ct ) ) ) {ct++ ;continue ;}
-       if( plev( ct )>9 ) {ct++ ;continue ;}
-       if( ploc( ct )==curch ) goto hitrune ;
-       ct++ ;
-       }
-    return ;
-    hitrune:if( randperc(  )<9*my_lev ) return ;
-    if( fpbns( pname( ct ) )== -1 ) return ;
-    bprintf( "The runesword twists in your hands lashing out savagely\n" ) ;
-    hitplayer(ct,32);
-    }
- 
 
- void pepdrop(void)
-    {
-    extern long my_sco ;
-    long a, b ;
-    extern char globme[];
-    extern long mynum ;
-    extern long curch ;
-    sendsys( " ", " ", -10000, curch, "You start sneezing ATISCCHHOOOOOO!!!!\n" ) ;
-    if( ( !strlen( pname( 32 ) ) )||( ploc( 32 )!=curch ) )
-    return ;
-    /* Ok dragon and pepper time */
-    if( ( iscarrby( 89, mynum ) )&&( ocarrf( 89 )==2 ) )
-       {
-       /* Fried dragon */
-       strcpy( pname( 32 ), "" ) ; /* No dragon */
-       my_sco+=100 ;
-       calibme(  ) ;
-       return ;
-       }
-    else
-       {
-       /* Whoops !*/
-       bprintf( "The dragon sneezes forth a massive ball of flame.....\n" ) ;
-       bprintf( "Unfortunately you seem to have been fried\n" ) ;
-       loseme(  ) ;
-       crapup( "Whoops.....   Frying tonight" ) ;
-       }
-    }
- 
- int dragget(void)
-    {
-    extern long curch, my_lev ;
-    long a, b ;
-long l ;
-if( my_lev>9 ) return( 0 ) ;
-l=fpbns( "dragon" ) ;
-if( l== -1 ) return( 0 ) ;
-    if( ploc( l )!=curch ) return( 0 ) ;
-    return( 1 ) ;
-    }
-
-void helpchkr(void)
+void chkfight(int x)
 {
-	extern long mynum;
-	extern long curch;
-	extern long i_setup;
-	long x=phelping(mynum);
-	if(!i_setup) return;
-	if(!strlen(pname(x))) goto nhelp;
-	if(ploc(x)!=curch) goto nhelp;
-	return;
-	nhelp:bprintf("You can no longer help \001c%s\001\n",pname(x));
-	setphelping(mynum,-1);
+  int i;
+
+  if (ptstflg(x, pfl(Possessed)) || x < 0 || EMPTY(pname(x))
+      || ploc(x) != ploc(mynum) || pstr(x) < 0 || pvis(mynum)
+      || ptstflg(mynum, pfl(NoHassle)) || testpeace())
+    return;
+  /* IF UNDEAD (LEVELS -900 TO -999) DON'T ATTACK CROSS-BEARER */
+  if (plev(x) >= -999 && plev(x) <= -900 && iscarrby(OBJ_CROSS, mynum))
+    return;
+  /* LEVELS 0 to -199 NEVER ATTACK */
+  if (plev(x) >= -199 && plev(x) < -1)
+    return;
+  if (x == MOB_YETI && ohany((1 << 13)) && pfighting(x) == -1) {
+    bprintf("The yeti seems disturbed by naked flame, and keeps its distance.\n");
+    return;
+  }
+  i = randperc();
+  if (i >= abs(plev(x) % 100))
+    return;
+  if (pfighting(x) == -1)
+    woundmn(x, 0);
 }
+
+void consid_move(int x)
+{
+  char msg[128];
+  int  ct;
+
+  if (EMPTY(pname(x)) || randperc() > 1)
+    return;
+  for (ct = 0; ct < MAX_CHARS; ct++)
+    if (pfighting(ct) == x)
+      return;
+  if (x == MOB_CHICKEN && randperc() < 20)
+    sendsys("Chicken Licken", "Chicken Licken", SYS_SAY, ploc(x), "The sky is about to fall in.");
+  if (x == MOB_GHOST && randperc() < 15)
+    sendsys("", "", SYS_TXT_TO_R, ploc(x), "The Ghost moans, sending chills down your spine.\n");
+  if (x == MOB_ANDRE && randperc() < 30) {
+	switch (rand() % 3) {
+	  case 0: strcpy(msg, "I do not believe in ghosts, this is just a practical joke.\n");
+		break;
+	  case 1: strcpy(msg, "He was found hanging next to a set from the Roi de Lahore.\n");
+		break;
+	  case 2: strcpy(msg, "Who is this Opera Ghost, anyway?\n");
+		break;
+	  }
+    sendsys("Mr. Andre", "Mr. Andre", SYS_SAY, ploc(x), msg);
+  }
+  if (x == MOB_JOEPA && randperc() < 20) {
+    switch (rand() % 2) {
+      case 0: strcpy(msg, "SHOWER!");
+		break;
+	  case 1: strcpy(msg, "Sweat, sweat!");
+		break;
+	  }
+    sendsys("Saint Joepa", "Saint Joepa", SYS_SAY, ploc(x), msg);
+  }
+  if (x == MOB_PUFF && randperc() < 20) {
+    switch (rand() % 7) {
+      case 0: strcpy(msg, "Rassilon hasn't fed me today.");
+	    break;
+      case 1: strcpy(msg, "Look at the pretty colors!");
+	    break;
+      case 2: strcpy(msg, "My god!  It's full of stars!");
+	    break;
+      case 3: strcpy(msg, "To iterate is human.  To recurse, divine.");
+	    break;
+      case 4: strcpy(msg, "How'd those fish get up there?");
+	    break;
+      case 5: strcpy(msg, "Hi!");
+	    break;
+      case 6: strcpy(msg, "I feel sleepy.  I think I'll go take a nap.");
+	    break;
+      }
+    sendsys("Puff", "Puff", SYS_SAY, ploc(x), msg);
+  }
+  /* MOBILE LEVELS -100 TO -299 DON'T MOVE, NOR DOES WRAITH */
+  if (plev(x) >= -299 && plev(x) <= -100 || x == MOB_WRAITH)
+    return;
+  if (x == MOB_MINOTAUR)
+    if (randperc() < 50) {
+      shiftstuff(x);
+      return;
+    }
+  movemob(x);
+}    
+
+void crashcom()
+{
+  if (plev(mynum) < LVL_WIZARD) {
+    erreval();
+    return;
+  }
+  bprintf("Bye Bye Cruel World...\n");
+  sendsys("", "", SYS_CRASH, 0, "");
+  mudlog("CRASH by %s", pname(mynum),"");
+  rescom();
+}
+
+void sys_reset()
+{
+  FILE *fl;
+  int i;
+  time_t t;
+  long u;
+
+  if (tscale() != 1) {
+    bprintf("There are other people on, so it won't work.\n");
+    return;
+  }
+  time(&t);
+  if (fl = openlock(RESET_N, "r")) {
+    fscanf(fl, "%ld", &u);
+    closelock(fl);
+    if (u < t && t < u + 3600) {
+      bprintf("Sorry, at least an hour must pass between resets.\n");
+      return;
+    }
+  }
+  i = plev(mynum);
+  setplev(mynum, LVL_WIZARD);
+  rescom();
+  setplev(mynum, i);
+}
+
+/* Handle Runesword */
+void dorune()
+{
+  int ct;
+
+  if (in_fight || testpeace())
+    return;
+  for (ct = 0; ct < MAX_CHARS; ct++) {
+    if (ct == mynum || EMPTY(pname(ct)) || plev(ct) >= LVL_WIZARD)
+      continue;
+    if (ploc(ct) == ploc(mynum))
+      break;
+  }
+  if (ct == MAX_CHARS)
+    return;
+  if (randperc() < 9 * plev(mynum) || fpbns(pname(ct)) == -1)
+    return;
+  bprintf("The Runesword twists in your hands, lashing out savagely!\n");
+  hitplayer(ct, OBJ_RUNESWORD);
+}
+
+dragget()
+{
+  int l;
+
+  if (plev(mynum) >= LVL_WIZARD)
+    return 0;
+  if ((l = alive(MOB_DRAGON)) != -1 && ploc(l) == ploc(mynum)) {
+    bprintf("The dragon makes it quite clear that he doesn't want his treasure borrowed!\n");
+    return 1;
+  }
+  if ((l = alive(MOB_COSIMO)) != -1 && ploc(l) == ploc(mynum)) {
+    bprintf("Cosimo guards his treasure jealously.\n");
+    woundmn(l, 0);
+    return 1;
+  }
+  return 0;
+}
+
+void helpchkr()
+{
+  int x;
+
+  if (!i_setup)
+    return;
+  x = phelping(mynum);
+  if (EMPTY(pname(x)) || ploc(x) != ploc(mynum)) {
+    bprintf("You can no longer help \001c%s.\377\n", pname(x));
+    setphelping(mynum, -1);
+  }
+}
+
+void movemob(int x)
+{
+  int n, r;
+  char v[80];
+
+  if (shimge[3])
+    return;
+  r = randperc() % 6;
+  if ((n = getexit(ploc(x),r)) > 9999)
+    return;
+  if (n > 999) {
+    if (state(n - 1000))
+      return;
+    n = oloc((n - 1000) ^ 1);
+  }
+  if (n >= 0 || ltstflg(n, lfl(NoMobiles) | lfl(Death)))
+    return;
+  sprintf(v, "\001s%s\377%s has gone %s.\n\377", pname(x), pname(x), exnam[r]);
+  sendsys(pname(x), pname(x), SYS_TXT_TO_R, ploc(x), v);
+  setploc(x, n);
+  sprintf(v, "\001s%s\377%s has arrived.\n\377", pname(x), pname(x));
+  sendsys(pname(x), pname(x), SYS_TXT_TO_R, ploc(x), v);
+}
+
+void stopcom()
+{
+  char ms[20];
+
+  if (plev(mynum) < LVL_WIZARD) {
+    erreval();
+    return;
+  }
+  shimge[3] = 1;
+  sprintf(ms, "[Mobiles STOPped]\n");
+  sendsys("", "", SYS_WIZ, ploc(mynum), ms);
+}
+
+void startcom()
+{
+  char ms[20];
+
+  if (plev(mynum) < LVL_WIZARD) {
+    erreval();
+    return;
+  }
+  shimge[3] = 0;
+  sprintf(ms, "[Mobiles STARTed]\n");
+  sendsys("", "", SYS_WIZ, ploc(mynum), ms);
+}
+
+void shiftstuff(int m)
+{
+  int a;
+  char x[200];
+
+  for (a = 0; a < numobs; a++)
+    if (ocarrf(a) == 0 && oloc(a) == ploc(m) && !oflannel(a)) {
+      sprintf(x, "\001sminotaur\377The Minotaur takes the %s.\n\377", oname(a));
+      sendsys("", "", SYS_TXT_TO_R, ploc(m), x);
+      setoloc(a, m, 1);
+      return;
+    }
+}
+
+/*
+** Calculate damage done by monster
+*/
+char damof(int n)
+{
+  switch (n) {
+  case MOB_RAT:
+  case MOB_GHOST:
+  case MOB_PRISONER:
+    return 6;
+  case MOB_AGNES:
+  case MOB_BOMBER:
+  case MOB_OWIN:
+  case MOB_GLOWIN:
+  case MOB_SMYTHE:
+  case MOB_DIO:
+  case MOB_SKELETON:
+  case MOB_VIOLA:
+  case MOB_COYOTE:
+  case MOB_ROTTY:
+  case MOB_SUCCUBUS:
+  case MOB_PRIEST:
+    return 8;
+  case MOB_BISON:
+  case MOB_WOLF:
+  case MOB_EFREET:
+  case MOB_LAVAMAN:
+  case MOB_SHADOW:
+  case MOB_COMMANDER:
+  case MOB_GRUEL:
+  case MOB_PATCH:
+  case MOB_PEGLEG:
+    return 12;
+  case MOB_WATCHMAN:
+  case MOB_USHER:
+  case MOB_CERBERUS:
+  case MOB_GARGOYLE:
+    return 13;
+  case MOB_BEAR:
+  case MOB_GIANT:
+  case MOB_OGRE:
+  case MOB_FIGURE:
+  case MOB_HOOK:
+  case MOB_SCURGE:
+    return 14;
+  case MOB_TROLL:
+  case MOB_VALKYRIE:
+  case MOB_ODIN:
+  case MOB_THOR:
+  case MOB_RIATHA:
+  case MOB_BEAST:
+  case MOB_DEFENDER:
+  case MOB_ASMODEUS:
+  case MOB_LICH:
+    return 15;
+  case MOB_PETER:
+  case MOB_JOEPA:
+  case MOB_TERRANCE:
+  case MOB_COSIMO:
+  case MOB_KING:
+  case MOB_REDBEARD:
+    return 20;
+  case MOB_TRUFFLE:
+	return 25;
+  case MOB_DRAGON:
+  case MOB_PUFF:
+    return 32;
+  case MOB_UNICORN:
+    return 40;
+  default:
+    return 10;
+  }
+}
+
+

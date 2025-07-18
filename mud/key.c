@@ -1,95 +1,181 @@
-/*  Key drivers */
-
-#include <stdio.h>
-/*#include <sgtty.h>*/
-#include <termios.h>
-
-#include "functions.h"
-
-long save_flag= -1;
-
-void keysetup(void)
-{
 /*
-	struct sgttyb x;
-	gtty(fileno(stdin),&x);
-	save_flag=x.sg_flags;
-	x.sg_flags&=~ECHO;
-	x.sg_flags|=CBREAK;
-	stty(fileno(stdin),&x);
+**  Keyboard input functions
 */
-	struct termios ios;
-	tcgetattr(fileno(stdin),&ios);
-	save_flag=ios.c_lflag;
-	ios.c_lflag&=~(ECHO|ICANON);
-	tcsetattr(fileno(stdin),TCSANOW,&ios);
+
+#include <sgtty.h>
+#include "kernel.h"
+#include "key.h"
+#include "bprintf.h"
+#include "pflags.h"
+#include "macros.h"
+
+static char *pr_bf;
+static long save_flag = -1;
+int key_echo = False;
+
+void keysetup()
+{
+  struct sgttyb	x;
+
+  gtty(fileno(stdin), &x);
+  save_flag = x.sg_flags;
+  x.sg_flags &= ~ECHO;
+  x.sg_flags |= CBREAK;
+  stty(fileno(stdin), &x);
 }
 
-void keysetback(void)
+void keysetback()
 {
-/*
-	struct sgttyb x;
-	if(save_flag== -1) return;
-	gtty(fileno(stdin),&x);
-	x.sg_flags=save_flag;
-	stty(fileno(stdin),&x);
-*/
-	struct termios ios;
-	tcgetattr(fileno(stdin),&ios);
-	ios.c_lflag=save_flag;
-	tcsetattr(fileno(stdin),TCSANOW,&ios);
+  struct sgttyb	 x;
+
+  if (save_flag != -1) {
+    gtty(fileno(stdin), &x);
+    x.sg_flags = save_flag;
+    stty(fileno(stdin), &x);
+  }
 }
 
-char key_buff[256];
-char pr_bf[32];
-long key_mode= -1;
-
-void key_input(char *ppt,int len_max)
+int keyecho(int n)
 {
-   char x;
-   extern long pr_due;
-   int len_cur=0;
-   key_mode=0;
-   strcpy(pr_bf,ppt);
-   bprintf("%s",ppt);
-   pbfr();
-   pr_due=0;
-   strcpy(key_buff,"");
-   while(len_cur<len_max)
-   {
-   	x=getchar();
-   	if(x=='\n')
-   	{
-   		printf("\n");
-   		key_mode= -1;
-    		return;
-   	}
-   	if(((x==8)||(x==127))&&(len_cur))
+  if (isatty (fileno (stdin)))
+    return (key_echo = n);
+  else {
+    key_echo = False;
+    return (True);
+  }
+}
+
+void keyinit(void)
+{
+  keyecho (True);
+}
+
+char hilite[] = "\001A\033[36m\377";
+char lolite[] = "\001A\033[37m\377";
+
+static void key_prompt(void)
+{
+  dcprnt (hilite, stdout);
+  dcprnt (pr_bf, stdout);
+  dcprnt (lolite, stdout);
+}
+
+void key_reprint()
+{
+  int tmp;
+
+  if (pr_due && key_mode) {
+    tmp = snoopd;
+    snoopd = 0;
+    key_prompt();
+    dcprnt(key_buff, stdout);
+    fflush(stdout);
+    snoopd = tmp;
+  }
+  pr_due = False;
+}
+
+void
+key_input (char *ppt, int len_max)
+{
+  int len_cur, x, tmp;
+
+  bflush();
+  key_mode = True;
+  pr_bf = ppt;
+  key_prompt();
+  key_buff[len_cur = 0] = '\0';
+
+  while (1)
+    {
+      pr_due = False;
+      fflush(stdout);
+
+      if (feof(stdin))
 	{
-		putchar(8);
-		putchar(' ');
-		putchar(8);
-		len_cur--;
-		key_buff[len_cur]=0;
-		continue;
+	  loseme();
+	  exit(2);
 	}
-	if(x<32) continue;
-	if(x==127) continue;
-	putchar(x);
-	key_buff[len_cur++]=x;
-	key_buff[len_cur]=0;
-     }
-}	
 
-void key_reprint(void)
-{
-	extern long pr_due;
-	extern long pr_qcr;
-	pr_qcr=1;
-	pbfr();
-	if((key_mode==0)&&(pr_due))
-		printf("\n%s%s",pr_bf,key_buff);
-	pr_due=0;
-	fflush(stdout);
+      switch (x = getchar()) {
+
+      case 'H' & 0x1F:
+      case 127:
+	if (len_cur)
+	  {
+	    if (key_echo)
+	      dcprnt("\b \b", stdout);
+	    key_buff[--len_cur] = '\0';
+	  }
+	continue;
+
+	/* SOCKET HACK */
+      case '\r':
+	break;
+
+      case '\n':
+	if (key_echo)
+	  {
+	    dcprnt("\n", stdout);
+	    bflush();
+	  }
+	key_mode = False;
+#ifdef FLUSH_INPUT		/* disables mouse/file buffered input */
+	if (stdin->_cnt > FLUSH_INPUT)
+	  stdin->_cnt = 0;
+#endif
+	return;
+
+      case 'R' & 0x1F:
+	if (key_echo)
+	  {
+	    for (tmp = len_cur; tmp; tmp--)
+	      dcprnt("\b \b", stdout);
+	    bprintf("%s", key_buff);
+	  }
+	continue;
+
+      case 'W' & 0x1F:
+	while (len_cur && key_buff[len_cur - 1] == ' ')
+	  {
+	    if (key_echo)
+	      dcprnt("\b \b", stdout);
+	    key_buff[--len_cur] = '\0';
+	  }
+	while (len_cur && key_buff[len_cur - 1] != ' ')
+	  {
+	    if (key_echo)
+	      dcprnt("\b \b", stdout);
+	    key_buff[--len_cur] = '\0';
+	  }
+	continue;
+
+      case 'U' & 0x1F:
+	if (key_echo)
+	  for (tmp = len_cur; tmp; tmp--)
+	    dcprnt("\b \b", stdout);
+	key_buff[len_cur = 0] = '\0';
+	continue;
+
+      case 255:
+	if ((x = getchar()) >= 4)
+	  getchar();
+	if (x != 255)
+	  continue;
+
+      default:
+	if (x < 32)
+	  continue;
+
+	if (len_cur < len_max)
+	  {
+	    key_buff[len_cur++] = x;
+	    key_buff[len_cur] = '\0';
+	    if (key_echo)
+	      dcprnt(&key_buff[len_cur-1], stdout);
+	  }
+	else
+	  dcprnt("\a", stdout);
+      }
+    }
 }
-
