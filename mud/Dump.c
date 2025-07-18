@@ -1,63 +1,127 @@
 /*
-**  Dump the uaf_rand file in a human-readable form
-**
-**  Another fine hack by Mycroft the Maintainer (Charles Hannum).
-*/
+ * Utility program for AberMUD [Dirt 3.0]
+ *
+ * Dumps the user-activity-file (uaf) given as argument in human-readable
+ * form to the standard output. If no argument is given, the file UAF_RAND
+ * is assumed. 
+ *
+ * Options:    -l [level]   -Level. Only show players >= the specified level.
+ * 		             The default is 1, but ignore level if -a is on.
+ *                           This option is really unneccesary on UNIX systems,
+ *                           I'd like to remove it, but it's there...
+ *
+ *	       -f           -Flags. Show full names of flags. Default is hex.
+ *                           (Not imlemented yet.)
+ *
+ *             -h           -Header. Include a header that explains the
+ *                           columns. Useful if the standard output is a tty.
+ *
+ *             -d [days]    -Show only players who have been on at least once
+ *                           the last specified number of days.
+ *
+ *             -a           -All. Do not skip entries with empty names. For
+ *			     debugging purposes where we want the whole file.
+ *
+ * Gjermund S. (Nicknack), March 1991
+ */
 
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <fcntl.h>
+#include <time.h>
+#include <errno.h>
 #include "kernel.h"
-extern int errno;
+#include "macros.h"
+#include "sflags.h"
+#include "pflags.h"
+#include "pflagnames.h"
 
-main (int argc, char **argv)
+
+extern int getopt(int argc, char **argv, char *optstr);
+extern int optind;
+extern char *optarg;
+
+void usage(char *progname);
+
+
+main( int argc, char *argv[] )
 {
-  int fd, od;
-  PERSONA d;
+    PERSONA      p;
+    FILE *       fl;
+    int          option;
+    char *       filename;
+    time_t       earliest;
 
-  if (!--argc) {
-    fprintf(stderr, "Usage:  Dump <infile> [outfile]\n");
-    exit(1);
-  }
+    const int    secs_in_a_day = 86400; 
 
-  if ((fd = open(*++argv, O_RDONLY)) == -1) {
-    perror("open(infile)");
-    exit(errno);
-  }
+    int          incl = 0, flags = 0, debug = 0, level = 1, days = 0;
 
-  if (--argc)
-    if ((od = open(*++argv, O_WRONLY | O_CREAT, 0644)) == -1) {
-      perror("open(outfile)");
-      exit(errno);
+
+    while ((option = getopt(argc, argv, "ad:l:fh")) != -1) {
+        switch (option) {
+        case 'a':
+	  debug++;
+          break;
+        case 'h':
+	  incl++;
+	  break;
+        case 'f':
+	  flags++;
+	  break;
+        case 'l':
+	  level = atoi(optarg);
+	  break;
+	case 'd':
+	  days = atoi(optarg);
+	  break;
+        case '?':
+          usage(*argv);
+          exit(1);
+        }
     }
 
-  printf("Name          Score       Strength  Sex     Level\n");
-  printf("------------  ----------  --------  ------  -----\n");
+    filename = optind < argc ? argv[optind] : DATA_DIR UAF_RAND;
 
-  while (read(fd, &d, sizeof(d)) == sizeof(d))
-  {
-    if (ntohl (d.p_strength) == -1)
-      continue;
-    if (!ntohl (d.p_score))
-      continue;
+    if ((fl = fopen( filename, "r" )) == NULL) {
+        perror( filename );
+        exit(1);
+    }
 
-    printf ("%-12s  %10d  %8d  %-6s  %5d\n", d.p_name, ntohl(d.p_score),
-	    ntohl(d.p_strength), (ntohl(d.p_sex)&1) ? "Female":"Male",
-	    ntohl(d.p_level));
+    if (days > 0)
+        earliest = time((time_t *)NULL) - days * secs_in_a_day;
 
-    if (od)
-      if (write(od, &d, sizeof(d)) == -1) {
-        perror("write()");
-        exit(errno);
-      }
-  }
-  close(od);
-  close(fd);
-  fflush(stdout);
+    if (incl) {
+        printf("Name        Sex      Level        Score      Strength");
+        printf("           Pflags\n------------------------");
+        printf("----------------------------------------------------\n\n");
+    }
 
-  if (errno)
-    perror("read()");
+    while (fread( &p, sizeof(p), 1, fl) > 0) {
+    
+        if ( !debug && 
+	     (p.p_level < level || *p.p_name == '\0' || 
+	      days > 0 && p.p_last_on < earliest) ) 
+	    continue;
 
-  exit(errno);
+        printf( "%-13.12s%c   %9d   %10d     %9d     0x%08x%08x\n",
+            p.p_name,
+            xtstbit(p.p_sflags, SFL_FEMALE) ? 'f' : 'm', 
+            p.p_level,
+            p.p_score,
+            p.p_strength, 
+            p.p_pflags.h,
+            p.p_pflags.l);
+    }
+
+    fclose( fl );
+
+    return(0);
+}
+
+
+void usage(char *progname)
+{
+    fprintf(stderr, "Usage: %s <options> <uaf-file>\n\n", progname);
+    fprintf(stderr, "Options: -a        All entries (including empty ones)\n");
+    fprintf(stderr, "         -d <#>    Only players on the last # days.\n");
+    fprintf(stderr, "         -l <level>Only players > level. Default = 1.\n");
+    fprintf(stderr, "         -h        Include Header explaning output\n");
 }

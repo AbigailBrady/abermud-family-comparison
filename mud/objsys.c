@@ -1,251 +1,1310 @@
-/*
-**  Routines to keep track of objects
-*/
-
-#include <strings.h>
 #include "kernel.h"
 #include "objects.h"
 #include "mobiles.h"
+#include "mobile.h"
 #include "locations.h"
+#include "sflags.h"
 #include "pflags.h"
+#include "mflags.h"
 #include "oflags.h"
 #include "lflags.h"
-#include "aflags.h"
-#include "objsys.h"
-#include "macros.h"
-#include "support.h"
-#include "blib.h"
-#include "bprintf.h"
-#include "new1.h"
-#include "new2.h"
+#include "cflags.h"
+#include "quests.h"
+#include "sendsys.h"
+#include "levels.h"
 #include "parse.h"
-#include "tk.h"
-#include "weather.h"
+#include "objsys.h"
 #include "exec.h"
-#include "extra.h"
-#include "blood.h"
+#include "oflagnames.h"
+#include "rooms.h"
+#include "objsys.h"
 
-static LEVEL u;
 
-static char *classnam[] =
+typedef struct {
+  char *class_name;
+  OFLAGS class_mask;
+  short class_state;
+} CLASS_DATA;
+
+static int	   value_class(CLASS_DATA *cl, int plx, Boolean silent);
+static CLASS_DATA *findclass(char *n);
+static Boolean     classmatch(int ob,CLASS_DATA *cl);
+static void	   dropall(CLASS_DATA *cl);
+static void	   getall(CLASS_DATA *cl);
+static void	   getallfr(CLASS_DATA *cl);
+
+
+static CLASS_DATA class_data[] = {
+  { "clothing",   1 << OFL_WEARABLE,  -2},
+  { "weapons",    1 << OFL_WEAPON,    -1},
+  { "containers", 1 << OFL_CONTAINER, -1},
+  { "food",       1 << OFL_FOOD,      -1},
+  { "keys",       1 << OFL_KEY,       -1},
+  { "all",        0,                  -1},
+  { NULL,         0,                  -1}};
+
+int pits[] = {
+  OBJ_START_PIT, OBJ_START_CHURCH_PIT,
+  OBJ_CATACOMB_PIT_NORTH, OBJ_CATACOMB_PIT_EAST,
+  OBJ_CATACOMB_PIT_SOUTH, OBJ_CATACOMB_PIT_WEST,
+  -1};
+
+Boolean ispit(register int o)
 {
-  "clothing", "weapons", "containers", "food", "keys", "all", NULL
-};
+  register int i = 0;
+  register int j;
 
-static short class_data[] = {
-  ofl(Wearable), -2,
-  ofl(Weapon), -1,
-  ofl(Container), -1,
-  ofl(Food), -1,
-  ofl(Key), -1,
-  0, -1
-};
-
-void
-inventory()
-{
-  bprintf("You are carrying:\n");
-  lobjsat(mynum);
+  while ((j = pits[i++]) != o && j != -1);
+  return (j >= 0);
 }
 
-void
-lobjsat(int loc)
+void givecom(void)
 {
-  aobjsat(loc, 1, 0);
-}
+  int a, c;
 
-void
-mlobjsat(int x, int m)
-{
-  aobjsat(x, 4, m);
-}
-
-void
-aobjsat (int loc, int mode, int marg)
-{
-  int ostack[16];
-  int ostackp;
-  int a, c, e, f, g;
-
-  ostackp = 0;
-  e = 0;
-  for (f = 0; f < marg; f++)
-    bprintf(" ");
-  for (c = 0; c < numobs; c++)
-    {
-      g = 0;
-      if ((iscarrby(c, loc) && (mode == 1 || mode == 4))
-	  || (iscontin(c, loc) && mode == 3))
-	{
-	  e = g = 1;
-	  f += strlen(oname(c)) + 1;
-	  if (otstbit(c, ofl(Destroyed)))
-	    f += 2;
-	  if (iswornby(c, loc))
-	    f += 7;
-	  else if (pwpn(loc) == c)
-	    f += 10;
-	  else if (otstbit(c, ofl(Lit)))
-	    f += 6;
-	  if (f > 78)
-	    {
-	      bprintf("\n");
-	      for (f = 0; f < marg; f++)
-		bprintf(" ");
-	    }
-	  if (otstbit(c, ofl(Destroyed)))
-	    bprintf("(");
-	  bprintf("%s", oname(c));
-	  if (iswornby(c, loc))
-	    bprintf(" <worn>");
-	  else if (pwpn(loc) == c)
-	    bprintf(" <wielded>");
-	  else if (otstbit(c, ofl(Lit)))
-	    bprintf(" <lit>");
-	  if (otstbit(c, ofl(Destroyed)))
-	    bprintf(")");
-	  bprintf(" ");
-	  if (otstbit(c, ofl(Container)) && g
-	      && (!otstbit(c, ofl(Openable)) || state(c) == 0))
-	    {
-	      ostack[ostackp++] = c;
-	      f++;
-	    }
-	}
-    }
-  if (!e)
-    bprintf("Nothing");
-  bprintf("\n");
-  if (mode != 4) {
-      for (f = 0; f < ostackp; f++) {
-	  for (a = 0; a < marg; a++) {
-	      bprintf(" ");
-	  }
-	  bprintf("    The %s contains:\n", oname(ostack[f]));
-	  pbfr();
-	  aobjsat(ostack[f], 3, marg + 8);
-      }
+  if (EMPTY(item1)) {
+    bprintf("Give what to who?\n");
+    error();
   }
+  if (pl1 != -1) {
+    if ((a = pl1) == -1) {
+      bprintf("Who's that?\n");
+      error();
+    }
+    if (mynum == a) {
+      bprintf("Cheap skate!\n");
+      error();
+    }
+    if (EMPTY(item2)) {
+      bprintf("Give them what?\n");
+      error();
+    }
+    if ((c = ob2) == -1) {
+      bprintf("You don't have it.\n");
+      error();
+    }
+    dogive(c, a);
+    return;
+  }
+  if ((a = ob1) == -1) {
+    bprintf("You don't have any %s.\n", item1);
+    error();
+  }
+  if (EMPTY(item2)) {
+    bprintf("To who?\n");
+    error();
+  }
+  if ((c = pl2) == -1) {
+    bprintf("Who's that?\n");
+    error();
+  }
+  if (mynum == c) {
+    bprintf("Cheap skate!\n");
+    error();
+  }
+  dogive(a, c);
 }
 
-int
-unencumbered()
+void dogive(int ob, int pl)
 {
-  int ob;
+  char z[60];
+  int i, j, o, p;
 
-  for (ob = 0; ob < numobs; ob++)
-    if (iscarrby(ob, mynum))
-      return 0;
-  return 1;
+  if (plev(mynum) < LVL_WIZARD && ploc(pl) != ploc(mynum)) {
+    bprintf("They aren't here.\n");
+    return;
+  }
+  if (!iscarrby(ob, mynum)) {
+    bprintf("You don't have any %s.\n", oname(ob));
+    return;
+  }
+  if (!cancarry(pl)) {
+    bprintf("They can't carry it.\n");
+    return;
+  }
+  if (pl >= max_players && mtstflg(pl, MFL_QFOOD) && otstbit(ob, OFL_FOOD)) {
+    bprintf("%s thanks you.\n", pname(pl));
+    sendf(ploc(mynum), "%s has left the game.\n", pname(pl));
+    setpscore(pl, pscore(pl) + 50);
+    dumpstuff(pl, ploc(pl));
+    strcpy(pname(pl), "");
+    eat(ob);
+    return;
+  }
+
+/*  p = pl - max_players;*/
+
+  if (pnum(pl) == MOB_CATACOMB_BEGGAR && otstbit(ob, OFL_FOOD)) {
+    bprintf("The Beggar thanks you and greedily devours the %s.\n",
+	    oname(ob));
+    setpscore(mynum, pscore(mynum) + 50);
+    eat(ob);
+    bprintf("After finishing his meal, the beggar stares at you and says '");
+    switch (my_random() % 4) {
+    case 0: bprintf("Charity");
+      o = OBJ_CATACOMB_PIT_NORTH;
+      break;
+    case 1: bprintf("Faith");
+      o = OBJ_CATACOMB_PIT_EAST;
+      break;
+    case 2: bprintf("Wisdom");
+      o = OBJ_CATACOMB_PIT_SOUTH;
+      break;
+    case 3: bprintf("Courage");
+      o = OBJ_CATACOMB_PIT_WEST;
+      break;
+    }
+    bprintf("'\n");
+    for (i = 0; (j = pits[i++]) != -1;)
+      setobjstate(j, 0);
+    setobjstate(o, 1);
+    sendf(oloc(o), "A faint glow emanates from the pit.\n");
+    return;
+  }
+  if (pnum(pl) == MOB_OAKTREE_VIOLA && onum(ob) == OBJ_OAKTREE_FAN) {
+    bprintf("Viola kisses you%s.\n", psex(mynum) == 0 ? "" : " on the cheek");
+    bprintf("Viola says 'Thank you, %s.  Won't you please come in?'\n",
+            psex(mynum) == 0 ? "kind sir" : "madame");
+    setpscore(mynum, pscore(mynum) + 50);
+  }
+
+  if (onum(ob) == OBJ_VALLEY_ROSE && psex(mynum) != psex(pl)) {
+    bprintf("You give %s the %s.\n", him_or_her(pl), oname(ob));
+    setpscore(mynum, pscore(mynum) + 60);
+    setpscore(pl, pscore(pl) + 50);
+    sendf(pl, "%s gives you the %s.\n", see_name(pl, mynum), oname(ob));
+    setoloc(ob, pl, CARRIED_BY);
+    if (++odamage(ob) >= 2) {
+	    sendf(ploc(pl), "The %s turns to dust.\n", oname(ob));
+	    destroy(ob);
+    }
+    return;
+  }
+
+  setoloc(ob, pl, CARRIED_BY);
+  sendf(pl, "%s gives you the %s.\n", see_name(pl, mynum), oname(ob));
+  send_msg(ploc(pl), 0, LVL_MIN, LVL_MAX, pl, mynum,
+	   "\001p%s\003 gives \001p%s\003 the %s.\n",
+	   pname(mynum), pname(pl), oname(ob));
+  return;
 }
 
-int
-iscontin(int o1, int o2)
+void stealcom(void)
 {
-  if (ocarrf(o1) != 3 || oloc(o1) != o2)
-    return 0;
-  if (plev(mynum) < LVL_WIZARD && otstbit(o1, ofl(Destroyed)))
-    return 0;
-  return 1;
+  int a, c, e, f;
+  char x[128], tb[128];
+
+  if (EMPTY(item1)) {
+    bprintf("Steal what?\n");
+    return;
+  }
+  strcpy(x, item1);
+  if (EMPTY(item2)) {
+    bprintf("From who?\n");
+    return;
+  }
+  if ((c = pl2) == -1) {
+    bprintf("Who is that?\n");
+    return;
+  }
+  if (mynum == c) {
+    bprintf("A true kleptomaniac.\n");
+    return;
+  }
+  if ((a = fobncb(x, c)) == -1) {
+    bprintf("They don't have it.\n");
+    return;
+  }
+  if (plev(mynum) < LVL_WIZARD && ploc(c) != ploc(mynum)) {
+    bprintf("They're not here!\n");
+    return;
+  }
+  if (ocarrf(a) == WORN_BY) {
+    bprintf("They're wearing it.\n");
+    return;
+  }
+  if (pwpn(c) == a) {
+    bprintf("They have it firmly to hand ... for KILLING people with!\n");
+    return;
+  }
+  if (pnum(c) == MOB_CATACOMB_DEFENDER || mtstflg(c, MFL_NOSTEAL)) {
+    sendf(ploc(c), "%s says 'How dare you steal from me, %s!'\n",
+	  pname(c), pname(mynum));
+    hit_player(c, mynum, -1);
+    return;
+  }
+  if (!do_okay( mynum, c, PFL_NOSTEAL)) {
+    int i = randperc() % 3;
+    switch (i) {
+    case 0:
+      bprintf("%s is too watchful.\n", he_or_she(c));
+      return;
+    case 1:
+      bprintf("%s is too alert.\n", he_or_she(c));
+      return;
+    case 2:
+      bprintf("%s is too crafty.\n", he_or_she(c));
+      return;
+    }
+  }
+  if (!cancarry(mynum)) {
+    bprintf("You can't carry any more.\n");
+    return;
+  }
+  f = randperc();
+  e = (10 + plev(mynum) - plev(c)) * 5;
+  if (f < e || plev(mynum) >= LVL_WIZARD) {
+    bprintf("Got it!\n");
+    sendf(c, "%s steals the %s from you!\n",
+	  see_name(c, mynum), oname(a));
+    setoloc(a, mynum, CARRIED_BY);
+    if ((f & 1) && (c >= max_players))
+        hit_player(c, mynum, -1);
+    return;
+  }
+  bprintf("Your attempt fails.\n");
 }
 
-void
-brkwordw(char *x)
+
+
+Boolean is_shield(int obj)
 {
-  strcpy(x, brkword() == -1 ? "<nothing>" : wordbuf);
+	return
+	   onum(obj) == OBJ_TREEHOUSE_SHIELD ||
+	   onum(obj) == OBJ_BLIZZARD_SHIELD1 ||
+	   onum(obj) == OBJ_BLIZZARD_SHIELD2 ||
+	   onum(obj) == OBJ_CATACOMB_SHIELD  ||
+	   onum(obj) == OBJ_EFOREST_SHIELD   ||
+	   onum(obj) == OBJ_FROBOZZ_SHIELD_ATTIC ||
+	   onum(obj) == OBJ_ANCIENT_BSHIELD;
 }
 
-int
-fobnsys(char *nam, int ctrl, int ct_inf)
+/* Does player pl wear a shield ?
+ */
+Boolean wears_shield(int pl)
+{
+	int i;
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iswornby(pobj_nr(i, pl), pl) && is_shield(pobj_nr(i, pl)))
+		        return True;
+	}
+
+	return False;
+}
+
+
+
+Boolean is_armor(int obj)
+{
+	return onum(obj) == OBJ_CAVE_ARMOR ||
+#ifdef LOCMIN_ANCIENT
+	  onum(obj) == OBJ_ANCIENT_ACLOAK ||
+#endif
+	  onum(obj) == OBJ_ORCHOLD_CHAINMAIL ||
+	  onum(obj) == OBJ_FROBOZZ_MITHRIL_JACKET;
+}
+
+
+/* Does player pl wear armor ?
+ */
+Boolean wears_armor(int pl)
+{
+	int i;
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iswornby(pobj_nr(i, pl), pl) && is_armor(pobj_nr(i, pl)))
+		        return True;
+	}
+	return False;
+}
+
+Boolean is_mask(int obj)
+{
+	return
+	onum(obj) == OBJ_LABYRINTH_MASK || onum(obj) == OBJ_ANCIENT_WARMASK;
+}
+
+
+Boolean wears_mask(int pl)
+{
+	int i;
+
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iswornby(pobj_nr(i, pl), pl) && is_mask(pobj_nr(i, pl)))
+		        return True;
+	}
+
+	return False;
+}
+
+Boolean is_boat(int obj)
+{
+	return
+	onum(obj) == OBJ_VILLAGE_BOAT
+	  || onum(obj) == OBJ_VILLAGE_RAFT
+	  || onum(obj) == OBJ_ANCIENT_CANOE;
+}
+
+Boolean carries_boat(int pl)
+{
+	int i;
+
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iscarrby(pobj_nr(i, pl), pl) && is_boat(pobj_nr(i, pl)))
+		        return True;
+	}
+
+	return False;
+}
+
+/* Does pl carry object type or a clone of it ?
+ */
+int carries_obj_type(int pl, int type)
+{
+	int i;
+
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iscarrby(pobj_nr(i, pl), pl) &&
+		    onum(pobj_nr(i, pl)) == type)
+		        return pobj_nr(i, pl);
+	}
+	return -1;
+}
+
+
+/* Does pl wear object type or a clone of it ?
+ */
+int wears_obj_type(int pl, int type)
+{
+	int i;
+
+	for (i = 0; i < pnumobs(pl); i++) {
+
+		if (iswornby(pobj_nr(i, pl), pl) &&
+		    onum(pobj_nr(i, pl)) == type)
+		        return pobj_nr(i, pl);
+	}
+	return -1;
+}
+
+
+
+
+
+void wearcom(void)
 {
   int a;
+  int b;
+  char buff[80];
 
-  for (a = 0; a < numobs; a++) {
-    if (EQ(nam, oname(a)) || EQ(nam, oaltname(a))) {
-      strcpy(wd_it, nam);
-      switch (ctrl) {
-      case 0:
-	return a;
-      case 1:			/* Patch for shields */
-	if (a == OBJ_SHIELD_1 && iscarrby(OBJ_SHIELD_2, mynum))
-	  return OBJ_SHIELD_2;
-	if (a == OBJ_SHIELD_1 && iscarrby(OBJ_SHIELD_3, mynum))
-	  return OBJ_SHIELD_3;
-	if (isavl(a))
-	  return a;
-	break;
-      case 2:
-	if (iscarrby(a, mynum))
-	  return a;
-	break;
-      case 3:
-	if (iscarrby(a, ct_inf))
-	  return a;
-	break;
-      case 4:
-	if (ishere(a))
-	  return a;
-	break;
-      case 5:
-	if (iscontin(a, ct_inf))
-	  return a;
-	break;
-      default:
-	return a;
+  if ((a = ohereandget()) == -1) return;
+  if (!iscarrby(a, mynum)) {
+    bprintf("You don't have it.\n");
+    return;
+  }
+  if (iswornby(a, mynum)) {
+    bprintf("You're already wearing it.\n");
+    return;
+  }
+
+
+#ifdef LOCMIN_ANCIENT
+  if (onum(a) == OBJ_ANCIENT_HEALBALSAM) {
+    if (pstr(mynum) < maxstrength(mynum) - 20) {
+      setpstr(mynum, pstr(mynum) + 20);
+      bprintf("You feel some of your wounds dissappear.\n");
+    } else if (pstr(mynum) < maxstrength(mynum)) {
+      setpstr(mynum, maxstrength(mynum));
+      bprintf("The balsam heals all your wounds!\n");
+    } else {
+      bprintf("The balsam has a nice cooling effect.\n");
+    }
+    destroy(a);
+    return;
+  }
+
+
+  if (onum(a) == OBJ_ANCIENT_EMBBALSAM) {
+    bprintf("You start applying the embalming balsam ...\n");
+    bprintf("You begin to feel sleepy, and after a while some mummies\n"
+	    "turn up helping you with the embalming ...\n");
+    destroy(a);
+    crapup("\tThe mummies carry you away to a safe restingplace."
+	   " You are dead...", SAVE_ME);
+    return;
+  }
+
+#endif
+
+  if (is_shield(a) && wears_shield(mynum)) {
+    bprintf("You can't use two shields at once.\n");
+    return;
+  }
+
+  if (is_armor(a) && wears_armor(mynum)) {
+    bprintf("You can't wear two suits of armor at once.\n");
+    return;
+  }
+
+  if (is_mask(a) && wears_mask(mynum)) {
+    bprintf("You can't wear two masks at once.\n");
+    return;
+  }
+
+  if (!otstbit(a, OFL_WEARABLE)) {
+    bprintf("Is this a new fashion?\n");
+    return;
+  }
+  b = WORN_BY;
+  if (ocarrf(a) == WIELDED_BY)
+      b = BOTH_BY;
+  setcarrf(a, b);
+
+  send_msg( ploc(mynum), 0, pvis(mynum), LVL_MAX, mynum, NOBODY,
+	   "\001p%s\003 wears the %s.\n", pname(mynum), oname(a));
+
+  bprintf("Ok\n");
+}
+
+void removecom(void)
+{
+  int a;
+  int b;
+  char buff[80];
+
+  if ((a = ohereandget()) == -1) return;
+  if (!iswornby(a, mynum)) {
+    bprintf("You're not wearing it.\n");
+    return;
+  }
+  b = (ocarrf(a) == BOTH_BY) ? WIELDED_BY : CARRIED_BY;
+  setcarrf(a, b);
+
+  send_msg( ploc(mynum), 0, pvis(mynum), LVL_MAX, mynum, NOBODY,
+	   "%s removes the %s.\n", pname(mynum), oname(a));
+
+  bprintf("Ok\n");
+}
+
+
+/* VALUE command:
+ *****************************************************************/
+
+static int value_class(CLASS_DATA *cl, int plx, Boolean silent)
+{
+  int obj, sum = 0;
+
+  for (obj = 0; obj < numobs; obj++ ) {
+
+	  if (in_inventory(obj, plx) && classmatch(obj, cl)) {
+		  sum += ovalue(obj);
+		  if (!silent) {
+			  if (plev(plx) >= LVL_WIZARD) bprintf("[%3d]", obj);
+		          bprintf("%12.12s:%5d points\n",
+				  oname(obj), ovalue(obj));
+		  }
+	  }
+  }
+  return sum;
+}
+
+void valuecom(void)
+{
+  CLASS_DATA *c;
+  int a;
+
+  if (brkword() == -1) {
+	  bprintf("Total value of all your possessions: %d points.\n",
+		  value_class(findclass("all"), mynum, True));
+  } else {
+	  do {
+		  if ((c = findclass(wordbuf)) != NULL) {
+			  bprintf("\nTotal value:%*d points.\n",
+				  plev(mynum) >= LVL_WIZARD ? 11 : 6,
+				  value_class(c, mynum, False));
+		  } else if ((a = fobn(wordbuf)) == -1) {
+			  bprintf("%s: no such object\n", wordbuf);
+		  } else {
+			  if (plev(mynum) >= LVL_WIZARD) bprintf("[%3d]", a);
+			  bprintf("%12.12s:%5d points\n", oname(a), ovalue(a));
+		  }
+	  } while (brkword() != -1);
+  }
+}
+/*End, VALUE command
+ ****************************************************************/
+
+
+void putcom(void)
+{
+  int a;
+  char ar[128];
+  int c;
+
+  if ((a = ohereandget()) == -1)
+    return;
+  if (EMPTY(item2)) {
+    bprintf("Where?\n");
+    return;
+  }
+  if ((c = ob2) == -1) {
+    bprintf( "I can't see any %s here.\n", item2);
+    return;
+  }
+
+#ifdef LOCMIN_EFOREST
+
+  if (onum(c) == OBJ_EFOREST_HOLE) {
+    if (onum(a) != OBJ_EFOREST_HOPE) {
+      bprintf("Nothing happens.\n");
+      return;
+    }
+    if (state(c) == 0) {
+      bprintf("You hear a 'click' sound but nothing seems to happen.\n");
+      return;
+    }
+
+    bprintf("The gem clicks into place...\n...and the door opens!\n");
+    send_msg(LOC_EFOREST_HOT, 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	     "You hear a 'click' sound and the door opens!\n");
+    setobjstate(OBJ_EFOREST_HOLE, 0);
+    return;
+  }
+  if (c == OBJ_EFOREST_LAKE) {
+    if (a != OBJ_EFOREST_SPONGE) {
+      bprintf("Nothing happens.\n");
+      return;
+    }
+    if (state(OBJ_EFOREST_LAKE) == 0) {
+      bprintf("What lake ? It is dried up!\n");
+      return;
+    } else {
+      setobjstate(OBJ_EFOREST_LAKE, 0);
+      setobjstate(OBJ_EFOREST_SPONGE, 1);
+      bprintf("The sponge seems to miraculously suck up the"
+	      " water in the lake!\n");
+      bprintf("It has dried the entire lake...wow!\n");
+      send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	       "A sponge seems to suck up the water in the lake!\n");
+      return;
+    }
+  }
+#endif
+
+#ifdef LOCMIN_FROBOZZ
+  if(c == OBJ_FROBOZZ_WINDOW_OUTSIDE) {
+    if(a != OBJ_FROBOZZ_LEAFLET_MAILBOX) {
+      bprintf("Nothing happens.\n");
+      return;
+    } else if(state(OBJ_FROBOZZ_VAULTDOOR_OUTSIDE) == 2) {
+      setobjstate(OBJ_FROBOZZ_VAULTDOOR_OUTSIDE,1);
+      bprintf("You hear a nearly inaudible click from "
+	      "the southern wall.\n");
+      return;
+    } else {
+      bprintf("Nothing happens.\n");
+      return;
+    }
+  }
+#endif
+
+#ifdef LOCMIN_ANCIENT
+  if (c == OBJ_ANCIENT_PEDESTAL)
+    if (a != OBJ_ANCIENT_SUNDISC) {
+      bprintf("Nothing happens.\n");
+      return;
+    } else {
+      bprintf("The sundisc fits perfectly on top of the pedestal with a loud "
+              "click!\n");
+      send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	       "You hear a loud click as %s puts the sundisc on "
+	      "the pedestal.", pname(mynum));
+
+      setoloc(OBJ_ANCIENT_SUNDISC, ploc(mynum), IN_ROOM);
+
+      osetbit(OBJ_ANCIENT_SUNDISC, OFL_NOGET);
+      setobjstate(OBJ_ANCIENT_SUNDISC, 2);
+      setobjstate(OBJ_ANCIENT_PEDESTAL, 0);
+      setpscore(mynum, pscore(mynum) + ovalue(OBJ_ANCIENT_SUNDISC)*3);
+      return;
+    }
+#endif
+
+  if (onum(c) == OBJ_TOWER_CANDLESTICK) {
+    if (onum(a) != OBJ_TOWER_RED_CANDLE && onum(a) != OBJ_TOWER_BLUE_CANDLE &&
+	onum(a) != OBJ_TOWER_GREEN_CANDLE) {
+      bprintf("You can't do that.\n");
+      return;
+    }
+    if (state(c) != 2) {
+      bprintf("There's already a candle in it!\n");
+      return;
+    }
+    bprintf("The candle fixes firmly into the candlestick.\n");
+    setpscore(mynum, pscore(mynum) + 50);
+    destroy(a);
+    osetarmor(c, a);
+    osetbit(c, OFL_LIGHTABLE);
+    osetbit(c, OFL_EXTINGUISH);
+    if (otstbit(a, OFL_LIT)) {
+      osetbit(c, OFL_LIT);
+      setobjstate(c, 0);
+      return;
+    }
+    setobjstate(c, 1);
+    oclrbit(c, OFL_LIT);
+    return;
+  }
+
+  if (onum(c) == OBJ_TOWER_BALL) {
+    if (onum(a) == OBJ_TOWER_WAND && oarmor(a) == 0) {
+      bprintf("The wand seems to soak up energy.\n");
+      osetarmor(a, 4);
+      return;
+    }
+    bprintf("Nothing happens.\n");
+    return;
+  }
+
+  if (c == OBJ_BLIZZARD_SLIME_PIT) {
+    if (state(c) == 0) {
+      setoloc(a, LOC_BLIZZARD_SLIME, IN_ROOM);
+      bprintf("Ok\n");
+      return;
+    }
+    destroy(a);
+    bprintf("It dissappears with a fizzle into the slime.\n");
+    if (onum(a) == OBJ_BLIZZARD_SOAP) {
+      bprintf("The soap dissolves the slime away!\n");
+      setobjstate(OBJ_BLIZZARD_SLIME_PIT, 0);
+    }
+    return;
+  }
+  if (c == OBJ_TOWER_CHUTE_BOT) {
+    bprintf("You can't do that, the chute leads up from here!\n");
+    return;
+  }
+  if (c == OBJ_TOWER_CHUTE_TOP) {
+    if (onum(a) == OBJ_CASTLE_RUNESWORD) {
+      bprintf("You can't let go of it!\n");
+      return;
+    }
+    bprintf("It vanishes down the chute....\n");
+    sendf(oloc(OBJ_TOWER_CHUTE_BOT),
+	  "The %s comes out of the chute.\n", oname(a));
+    setoloc(a, oloc(OBJ_TOWER_CHUTE_BOT), IN_ROOM);
+    return;
+  }
+  if (c == OBJ_TOWER_HOLE) {
+    if (onum(a) == OBJ_TOWER_SCEPTRE && state(OBJ_TOWER_DOOR_SHAZARETH) == 1) {
+      setobjstate(OBJ_TOWER_DOOR_TREASURE, 0);
+      strcpy(ar, "The door clicks open!\n");
+      sendf( oloc(OBJ_TOWER_DOOR_TREASURE), ar);
+      sendf( oloc(OBJ_TOWER_DOOR_SHAZARETH), ar);
+      return;
+    }
+    bprintf("Nothing happens.\n");
+    return;
+  }
+  if (c == a) {
+    bprintf("What do you think this is, the goon show?\n");
+    return;
+  }
+  if (otstbit(c, OFL_CONTAINER) == 0) {
+    bprintf("You can't do that.\n");
+    return;
+  }
+  if (state(c) != 0) {
+    bprintf("It's not open.\n");
+    return;
+  }
+  if (oflannel(a)) {
+    bprintf("You can't take that!\n");
+    return;
+  }
+  if ((ishere(a)) && (dragget()))
+    return;
+  if (onum(a) == OBJ_CASTLE_RUNESWORD) {
+    bprintf("You can't let go of it!\n");
+    return;
+  }
+  if (onum(a) == OBJ_START_UMBRELLA && state(a) == 1) {
+    bprintf("Close it first...\n");
+    return;
+  }
+  if (otstbit(a, OFL_LIT)) {
+    bprintf("I'd try putting it out first!\n");
+    return;
+  }
+  if (!willhold(c, a)) {
+    bprintf("It won't fit.\n");
+    return;
+  }
+  setoloc(a, c, IN_CONTAINER);
+  bprintf("Ok\n");
+
+  send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	   "\001D%s\003\001c puts the %s in the %s.\n\003",
+	  pname(mynum), oname(a), oname(c));
+
+  if (otstbit(a, OFL_GETFLIPS))
+    setobjstate(a, 0);
+  if (ploc(mynum) == LOC_TOWER_TREASURE && state(OBJ_TOWER_DOOR_TREASURE) == 0
+      && ishere(a)) {
+    setobjstate(OBJ_TOWER_DOOR_TREASURE, 1);
+    strcpy(ar, "The door clicks shut....\n");
+    sendf( LOC_TOWER_TREASURE, ar);
+    sendf( oloc(OBJ_TOWER_DOOR_SHAZARETH), ar);
+  }
+}
+
+void eatcom(void)
+{
+  int b;
+  char s[100];
+
+  if (brkword() == -1) {
+    bprintf("Eat what?\n");
+    return;
+  }
+  if (EQ(wordbuf, "water"))
+    strcpy(wordbuf, "spring");
+  if ((b = ob1 == -1 ? ob2 : ob1) == -1) {
+    bprintf("It isn't here.\n");
+    return;
+  }
+  switch (onum(b)) {
+  case OBJ_MOOR_CHALICE:
+    bprintf("However much blood you drink from the chalice it "
+            "stays just as stained!\n");
+    break;
+  case OBJ_OAKTREE_TART:
+  case OBJ_OAKTREE_CAKES:
+  case OBJ_OAKTREE_TOAST:
+    bprintf("That was delicious, but not very filling.\n");
+    eat(b);
+    setpstr(mynum, pstr(mynum) + 6);
+    calibme();
+    break;
+  case OBJ_OAKTREE_SOUP:
+    bprintf("As you finish off the last of the caterpillar consume\n");
+    bprintf("you notice a small diamond in the bottom of the cup.\n");
+    eat(b);
+    create(OBJ_OAKTREE_CUPDIAMOND);
+    setoloc(OBJ_OAKTREE_CUPDIAMOND, mynum, CARRIED_BY);
+    create(OBJ_OAKTREE_CUPCHINA);
+    setoloc(OBJ_OAKTREE_CUPCHINA, mynum, CARRIED_BY);
+    setpstr(mynum, pstr(mynum) + 6);
+    calibme();
+    break;
+  case OBJ_TOWER_CAULDRON:
+    bprintf("You feel funny and pass out....\n");
+    bprintf("You wake up elsewhere....\n");
+    teletrap(LOC_TOWER_MAGICAL);
+    break;
+  case OBJ_VALLEY_SPRING:
+    bprintf("Very refreshing.\n");
+    break;
+  case OBJ_TOWER_POTION:
+    setpstr(mynum, maxstrength(mynum));
+    bprintf("You feel much much stronger!\n");
+    setoloc(b, LOC_DEAD_EATEN, IN_ROOM);
+    destroy(b);
+    break;
+  case OBJ_TREEHOUSE_WAYBREAD:
+    if (plev(mynum) < LVL_WIZARD && cur_player->pretend < 0) {
+      pl1 = (my_random() >> 3) % (numchars - 1);
+      if (ststflg(pl1, SFL_OCCUPIED) || pl1 < max_players) {
+        bprintf("There is a sudden feeling of failure...\n");
+        break;
+      }
+      polymorph(pl1,25);        /* aliased for 25 moves */
+    }
+    setpstr(mynum, pstr(mynum) + 16);
+    eat(b);
+    break;
+  case OBJ_ICECAVE_FOUNTAIN:
+    if (plev(mynum) >= LVL_NOVICE && plev(mynum) < LVL_HERO) {
+      setpscore(mynum, pscore(mynum) + 40);
+      calibme();
+      bprintf("You feel a wave of energy sweeping through you.\n");
+    } else {
+      bprintf("Faintly magical by the taste.\n");
+      if (plev(mynum) >= LVL_HERO && pstr(mynum) < 10)
+        setpstr(mynum, pstr(mynum) + 4);
+      calibme();
+    }
+    break;
+
+#ifdef LOCMIN_ANCIENT
+  case OBJ_ANCIENT_FOUNTAIN_OF_YOUTH:
+    if (pscore(mynum) >= 20) {
+        setpscore(mynum, pscore(mynum) - 20);
+        calibme();
+        bprintf("You feel younger and less experienced...\n");
+      }
+    break;
+#endif
+
+  default:
+    if (otstbit(b, OFL_FOOD)) {
+      eat(b);
+      bprintf("Delicious!\n");
+
+      setpstr(mynum, pstr(mynum) + 12);
+      calibme();
+      sprintf(s, "\001P%s\003 greedily devours the %s.\n",
+	      pname(mynum), oname(b));
+      sillycom(s);
+    } else {
+      bprintf("I think I've lost my appetite.\n");
+      return;
+    }
+    break;
+  }
+}
+
+void inventory(void)
+{
+	if (plev(mynum) < LVL_WIZARD) {
+		send_msg(ploc(mynum), 0, pvis(mynum), LVL_MAX, mynum, NOBODY,
+			 "%s rummages through %s backpack.\n", 
+			 pname(mynum), his_or_her(mynum));
+	}
+
+	bprintf("You are carrying:\n");
+	aobjsat(mynum, CARRIED_BY, 0);
+}
+
+
+void listobject(int loc,int mode)
+{
+	aobjsat(loc, mode, 0);
+}
+
+void mlobjsat(int x, int m)
+{
+	aobjsat(x, CARRIED_BY, m);
+}
+
+
+
+/* All OBJectS AT - list all objects at the destination given.
+ */
+void aobjsat(int loc, int mode, int marg)
+{
+	int ostack[64], ostackp = 0;
+
+	char b[80], *s;
+
+	int col;
+	Boolean wwl;    /* worn, wielded or lit ?*/
+	Boolean d, show_contents, empty = True;
+	int obj;
+	int stp;
+	int_set *inv = mode == IN_ROOM ? linv(loc) :
+	               mode == IN_CONTAINER ? oinv(loc) : pinv(loc);
+
+
+	for (col = 0; col < marg; col++)  bprintf(" ");
+
+	for (obj = first_obj(inv); obj != SET_END; obj = next_obj(inv)) {
+
+		show_contents = False;
+
+		s = b;
+
+		if ((mode == CARRIED_BY && iscarrby(obj, loc))
+		    || (mode == IN_CONTAINER && iscontin(obj, loc))) {
+
+			empty = False;
+			show_contents = True;
+
+			if (d = otstbit(obj, OFL_DESTROYED)) {
+				*s++ = '(';
+			}
+
+			strcpy(s, oname(obj));
+			s += strlen(oname(obj));
+
+			if (d) {
+				*s++ = ')';
+			}
+
+			*s++ = ' ';
+
+			wwl = False;
+
+			if (mode == CARRIED_BY) {
+				if (iswornby(obj, loc)) {
+					strcpy(s,"<worn");
+					s += strlen(s);
+					wwl = True;
+				}
+
+				if (pwpn(loc) == obj
+				    && ocarrf(obj) == WIELDED_BY) {
+					if (wwl) *s++ = ',';
+					else {
+						*s++ = '<';
+						wwl = True;
+					}
+					strcpy(s,"wielded");
+					s += strlen(s);
+				}
+
+				if (otstbit(obj, OFL_LIT)) {
+					if (wwl) *s++ = ',';
+					else {
+						*s++ = '<';
+						wwl = True;
+					}
+					strcpy(s,"lit");
+					s += strlen(s);
+				}
+				if (wwl) *s++ = '>';
+			}
+
+			*s = 0;
+
+			if (s - b + 1 + col > 79) {
+				bprintf("\n");
+				for (col = 0; col < marg; col++) bprintf(" ");
+			}
+
+			bprintf( "%s ", b);
+			col += strlen(b) + 1;
+
+			if (otstbit(obj, OFL_CONTAINER) && show_contents &&
+			    (!otstbit(obj, OFL_OPENABLE) || state(obj) == 0)) {
+				ostack[ostackp++] = obj;
+			}
+		}
+	}
+
+
+	if (empty)  bprintf("Nothing");
+
+	bprintf("\n");
+
+	for (stp = 0; stp < ostackp; stp++) {
+		for (col = 0; col < marg; col++)  bprintf(" ");
+
+		obj = ostack[stp];
+
+		bprintf("    The %s contains:\n", oname(obj));
+/*		pbfr();*/
+		aobjsat(obj, IN_CONTAINER, marg + 8);
+	}
+}
+
+
+
+
+/* Is o1 contained in o2 ?
+ */
+Boolean iscontin(int o1, int o2)
+{
+	if (ocarrf(o1) != IN_CONTAINER || oloc(o1) != o2)
+	        return False;
+
+	if (plev(mynum) < LVL_WIZARD && otstbit(o1, OFL_DESTROYED))
+	        return False;
+
+	return True;
+}
+
+
+/* The room where an object, or its container or its carrier, are at.
+ */
+int obj_loc(int obj)
+{
+	for (; ocarrf(obj) == IN_CONTAINER; obj = oloc(obj))
+	  ;
+	return ocarrf(obj) >= CARRIED_BY ? ploc(oloc(obj)) : oloc(obj);
+}
+
+
+
+/* The 'Find Object By Name' system.
+ *
+ * Name can be either 1) <object-number>
+ *                 or 2) <object-name>
+ *                 or 3) <object-name><number-in-sequence-with-that-name>
+ */
+static int fobnsys(char *name, int ctrl, int ct_inf, int_set *inv);
+
+int fobn(char *word)
+{
+	int x;
+
+	/* Look for all available objects (=in room or inventory)
+	 */
+	if ((x = fobna(word)) != -1) return x;
+
+	/* we didn't find any available object...look for *any* object
+	 */
+	return fobnsys(word, 0, 0, NULL);
+}
+
+/* Look for available objects */
+int fobna(char *word)
+{
+	int i;
+
+	return (i = fobnc(word)) >= 0 ? i : fobnh(word);
+}
+
+/* Look for objects contained in ct */
+int fobnin(char *word, int ct)
+{
+	return fobnsys(word, 5, ct, oinv(ct));
+}
+
+/* look for objects carried by me */
+int fobnc(char *word)
+{
+	return fobncb(word, mynum);
+}
+
+/* look for objects carried by 'by' */
+int fobncb(char *word, int by)
+{
+	return fobnsys(word, 3, by, pinv(by));
+}
+
+/* Look for objects that's here */
+int fobnh(char *word)
+{
+	return fobnsys(word, 4, ploc(mynum), linv(ploc(mynum)));
+}
+
+/* Look for a obj. that's here and not scenery (can be taken) */
+int fobn_can_take(char *word)
+{
+	return fobnsys(word, 6, ploc(mynum), linv(ploc(mynum)));
+}
+
+
+static int fobnsys(char *name, int ctrl, int ct_inf, int_set *inv)
+{
+	char b[ONAME_LEN + 1], *p = b;
+	int i, obj, num;
+	char *n;
+
+	if (name == NULL || strlen(name) > ONAME_LEN)  return -1;
+
+	while (*name != '\0' && isalpha(*name)) *p++ = *name++;
+	*p = '\0';
+
+	if (isdigit(*name)) {
+		num = atoi(name);
+
+		while (isdigit(*++name));
+		if (*name != '\0') return -1;
+	}
+	else if (*name != '\0') {
+		return -1;
+	}
+	else num = 1;
+
+	if (num < 0 || num >= numobs) return -1;
+
+	if (*b == '\0') {
+		switch(ctrl) {
+		      case 0: return num;
+		      case 3: return iscarrby(num, ct_inf) ? num : -1;
+		      case 4: return ishere(num) ? num : -1;
+		      case 5: return iscontin(num, ct_inf) ? num : -1;
+		      case 6: return ishere(num) && !oflannel(num) ? num : -1;
+		      default: return -1;
+		}
+	}
+
+	if (ctrl == 0) {    /* Look for first object with this name*/
+
+		for (obj = 0; obj < numobs; obj++) {
+			n = EQ(b, oname(obj))    ? oname(obj) :
+			    EQ(b, oaltname(obj)) ? oaltname(obj) : NULL;
+
+			if (n != NULL && --num == 0) {
+				cur_player->wd_it = n;
+				return obj;
+			}
+		}
+		return -1;
+	}
+
+	for (i = 0; i < set_size(inv); i++) {
+
+		obj = int_number(i, inv);
+
+		n = EQ(b, oname(obj))    ? oname(obj) :
+ 		    EQ(b, oaltname(obj)) ? oaltname(obj) : NULL;
+
+		if (n != NULL) {
+			cur_player->wd_it = n;
+
+			switch (ctrl) {
+			      case 3: /* Look for objects carried by ct_inf */
+				if (iscarrby(obj, ct_inf) && --num == 0)
+				  return obj;
+				break;
+			      case 4: /* Look for objects that's here */
+				if (ishere(obj) && --num == 0)
+				  return obj;
+				break;
+			      case 5: /* look for objects contained in ct_inf*/
+				if (iscontin(obj, ct_inf) && --num == 0)
+				  return obj;
+				break;
+			      case 6: /* objects that are here and gettable */
+				if (ishere(obj) && !oflannel(obj) && --num ==0)
+				  return obj;
+				break;
+			      default: 	return -1;
+			  }
+		}
+	}
+	return -1;
+}
+
+
+/* Find an object's in-game index from its ID.
+ * Return -1 if not found.
+ */
+int find_object_by_id(long int id)
+{
+	long int x;
+
+	if (id >= 0 && id < num_const_obs) return id;
+
+	return (x = lookup_entry(id, &id_table)) == NOT_IN_TABLE
+	  || x < 0 || x >= numobs ? -1 : x;
+}
+
+
+
+
+int get1objfrom(int ob,int container)
+{
+  int l;
+  char *s;
+  char bf[81];
+
+#ifdef LOCMIN_ANCIENT
+  if (ob == OBJ_ANCIENT_SUNDISC && state(ob) == 1) {
+    if (!iscarrby(OBJ_ANCIENT_ESTONE, mynum) ||
+        !iscarrby(OBJ_ANCIENT_QFEATHER, mynum)) {
+      bprintf("You feel that you need more magical equipment "
+              "than just your hands for this job.\n");
+      return 0;
+    }
+    else {
+      setobjstate(OBJ_ANCIENT_SUNDISC, 0);
+    }
+  }
+#endif
+
+  if (ob == OBJ_BLIZZARD_SHIELD) {
+    if (ishere(OBJ_BLIZZARD_SHIELD1)) ob = OBJ_BLIZZARD_SHIELD1;
+    else if (ishere(OBJ_BLIZZARD_SHIELD2)) ob = OBJ_BLIZZARD_SHIELD2;
+    else if (container == -1) {
+      if (otstbit(OBJ_BLIZZARD_SHIELD1, OFL_DESTROYED))
+	ob = OBJ_BLIZZARD_SHIELD1;
+      else if (otstbit(OBJ_BLIZZARD_SHIELD2, OFL_DESTROYED))
+	ob = OBJ_BLIZZARD_SHIELD2;
+      if (ob == OBJ_BLIZZARD_SHIELD1 || ob == OBJ_BLIZZARD_SHIELD2)
+	create(ob);
+      else {
+	bprintf("The shields are too firmly secured to the walls.\n");
+	return 0;
       }
     }
   }
-  return -1;
+
+  if (oflannel(ob)) {
+
+    int i = fobn_can_take(oaltname(ob));
+
+    if (i == -1) i = fobn_can_take(oname(ob));
+
+    if (i == -1) {
+      bprintf("You can't take that!\n");
+      return -1;
+
+    } else ob = i;
+  }
+
+  if (container == -1 || !iscarrby(container, mynum)) {
+
+    if (dragget())
+      return -1;
+  }
+
+  if (!cancarry(mynum)) {
+    bprintf("You can't carry any more.\n");
+    return -1;
+  }
+
+  if (onum(ob) == OBJ_CASTLE_RUNESWORD && state(ob) == 1 &&
+      ptothlp(mynum) == -1) {
+    bprintf("It's too well embedded to shift alone.\n");
+    return 0;
+  }
+  if (ob == OBJ_CATACOMB_CUPSERAPH &&
+      (l = alive((max_players + MOB_CATACOMB_SERAPH))) != -1 &&
+      ploc(l) == ploc(mynum)) {
+    bprintf("\001pThe Seraph\003 says 'Well done, my %s.  "
+            "Truly you are a %s of virtue.'\n",
+	    psex(mynum) ? "daughter" : "son", psex(mynum) ? "woman" : "man");
+  }
+  setoloc(ob, mynum, CARRIED_BY);
+  if (container == -1) {
+    *bf = '\0';
+  } else {
+    sprintf(bf, " from the %s", oname(container));
+  }
+  send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	   "\001p%s\003 takes the %s%s.\n", pname(mynum), oname(ob), bf);
+
+  if (otstbit(ob, OFL_GETFLIPS))
+    setobjstate(ob, 0);
+  if ((ploc(mynum) == LOC_TOWER_TREASURE) &&
+      (state(OBJ_TOWER_DOOR_TREASURE) == 0)) {
+    setobjstate(OBJ_TOWER_DOOR_TREASURE, 1);
+    sendf(LOC_TOWER_TREASURE, s = "The door clicks shut...\n");
+    sendf(obj_loc(olinked(OBJ_TOWER_DOOR_TREASURE)), s); /*Other side of door*/
+  }
+  if (ob == OBJ_CATACOMB_CUPSERAPH &&
+      (l = alive((max_players + MOB_CATACOMB_SERAPH))) != -1 &&
+      ploc(l) == ploc(mynum)) {
+    bprintf("The Seraph gestures and you are transported to ...\n");
+    send_msg( ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	     "%s vanishes, taking \001p%s\003 with him!\n",
+	     pname(l), pname(mynum));
+    sendf(LOC_START_CHURCH,
+	  "\001p%s\003 appears, accompanied by an angel!\n", pname(mynum));
+    setploc((max_players + MOB_CATACOMB_SERAPH), LOC_START_CHURCH);
+    qsetflg(mynum, Q_GRAIL);
+    trapch(LOC_START_CHURCH);
+    return 0;
+  }
+  bprintf("Ok\n");
+  return 0;
 }
 
-int
-fobn(char *word)
+int getcom(void)
 {
-  int x;
-
-  if ((x = atoi(word)) > 0 && x <= numobs)
-    return x;
-  if ((x = fobna(word)) != -1)
-    return x;
-  return fobnsys(word, 0, 0);
-}
-
-int
-fobna(char *word)
-{
-  return fobnsys(word, 1, 0);
-}
-
-int
-fobnin(char *word, int ct)
-{
-  return fobnsys(word, 5, ct);
-}
-
-int
-fobnc(char *word)
-{
-  return fobnsys(word, 2, 0);
-}
-
-int
-fobncb(char *word, int by)
-{
-  return fobnsys(word, 3, by);
-}
-
-int
-fobnh(char *word)
-{
-  return fobnsys(word, 4, 0);
-}
-
-int
-getobj()
-{
-  int a, i, l;
-  int des_inf = -1;
-  char bf[81];
+  CLASS_DATA *cl;
+  int ob;
+  int i;
+  int container = -1;
+  char bf[1024];
 
   if (brkword() == -1) {
     bprintf("Get what?\n");
@@ -255,11 +1314,11 @@ getobj()
     bprintf("It's dark!\n");
     return -1;
   }
-  if (findclass(wordbuf) != -1) {
-    getall();
+  if ((cl = findclass(wordbuf)) != NULL) {
+    getall(cl);
     return 0;
   }
-  a = fobnh(wordbuf);
+  ob = fobnh(wordbuf);
   /* Hold */
   i = stp;
   strcpy(bf, wordbuf);
@@ -268,842 +1327,754 @@ getobj()
       bprintf("From what?\n");
       return -1;
     }
-    if ((des_inf = fobna(wordbuf)) == -1) {
+    if ((container = fobna(wordbuf)) == -1) {
       bprintf("You can't take things from that!  It's not here!\n");
       return -1;
     }
-    a = fobnin(bf, des_inf);
+
+    if (otstbit(container, OFL_LOCKABLE) &&
+        	                state(container) == 2 && !ohany(1<<OFL_KEY)) {
+      bprintf("The %s is locked, and you have no key.\n", oname(container));
+      return -1;
+    }
+
+    if ((otstbit(container, OFL_OPENABLE) || otstbit(container, OFL_LOCKABLE))
+	&& state(container) > 0) {
+          bprintf("You open the %s.\n", oname(container));
+          setobjstate(container, 0);
+    }
+
+    ob = fobnin(bf, container);
   }
   stp = i;
-  if (a == -1) {
+  if (ob == -1) {
     bprintf("It's not here.\n");
     return -1;
   }
-  if (a == OBJ_SHIELD_1 && ishere(OBJ_SHIELD_2))
-    a = OBJ_SHIELD_2;
-  if (a == OBJ_SHIELD_1 && ishere(OBJ_SHIELD_3))
-    a = OBJ_SHIELD_3;
-  if (a == OBJ_SHIELD_1 && des_inf == -1) {
-    if (otstbit(OBJ_SHIELD_2, ofl(Destroyed)))
-      a = OBJ_SHIELD_2;
-    else if (otstbit(OBJ_SHIELD_3, ofl(Destroyed)))
-      a = OBJ_SHIELD_3;
-    if (a == OBJ_SHIELD_2 || a == OBJ_SHIELD_3)
-      create(a);
-    else {
-      bprintf("The shields are too firmly secured to the walls.\n");
-      return 0;
-    }
-  }
-  if (oflannel(a) == 1) {
-    bprintf("You can't take that!\n");
-    return -1;
-  }
-  if (ptstflg(mynum, pfl(NoArms))) {
-    bprintf("You can't take anything, you have no arms.\n");
-    return -1;
-  }
-  if (des_inf == -1 || !iscarrby(des_inf, mynum))
-    if (dragget())
-      return -1;
-  if (!cancarry(mynum)) {
-    bprintf("You can't carry any more.\n");
-    return -1;
-  }
-  if ((a == OBJ_GRASSHOPPER) && (state(OBJ_GRASSHOPPER) != 0)) {
-	bprintf("\nYou hear an explosion and see a blinding flash of light.\n");
-    broad("\001dYou hear a loud explosion coming from town.\n\377");
-    teletrap(-2700);
-	if (alive(MOB_WORKMAN)) {
-	  setploc(MOB_WORKMAN, RM_VILLAGE12);
-	}
-  }
-  if (a == OBJ_VASE) {
-    destroy(OBJ_VASE);
-    bprintf("The vase slips out of you hands and crashes to the floor!\n");
-    bprintf("The reverberations caused by the crash cause the ceiling to");
-    bprintf(" cave in!\n");
-    broad("\001dYou hear ambulance sirens in the distance.\n\377");
-    teletrap(-2700);
-    return 0;
-  }
-  if (a == OBJ_RUNESWORD && state(a) == 1)
-    if (ptothlp(mynum) == -1) {
-      bprintf("It's too well embedded to shift alone.\n");
-      return 0;
-    }
-  if (a == OBJ_ARK)
-    if (ptothlp(mynum) == -1) {
-      bprintf("It's too heavy to lift alone.\n");
-      return 0;
-    }
-  if ((l = alive(MOB_SERAPH)) != -1 && ploc(l) == ploc(mynum)
-      && a == OBJ_CUP) {
-    bprintf("\001pThe Seraph\377 says 'Well done, my %s.  Truly you are a %s of virtue.'\n", psex(mynum) ? "daughter" : "son", psex(mynum) ? "woman" : "man");
-  }
-  setoloc(a, mynum, 1);
-  sprintf(bf, "\001p%s\377 takes the %s.\n", pname(mynum), oname(a));
-  if (des_inf != -1)
-    sprintf(bf, "\001p%s\377 takes the %s from the %s.\n",
-	    pname(mynum), oname(a), oname(des_inf));
-  sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), bf);
-  if (otstbit(a, ofl(GetFlips)))
-    setobjstate(a, 0);
-  if ((ploc(mynum) == -1081) && (state(OBJ_DOOR) == 0)) {
-    setobjstate(OBJ_DOOR, 1);
-    bprintf("The door clicks shut....\n");
-  }
-  if ((l = alive(MOB_SERAPH)) != -1 && ploc(l) == ploc(mynum)
-      && a == OBJ_CUP) {
-    bprintf("The Seraph gestures and you are transported to ...\n");
-    sprintf(bf, "The Seraph vanishes, taking %s with him!\n", pname(mynum));
-    sendsys("The Seraph", "The Seraph", -10000, ploc(mynum), bf);
-    sprintf(bf, "%s appears, accompanied by an angel!\n", pname(mynum));
-    sendsys(pname(mynum), pname(mynum), -10000, -5, bf);
-    setploc(MOB_SERAPH, -5);
-    trapch(-5);
-    return 0;
-  }
-  bprintf("Ok\n");
-  return 0;
+
+  return get1objfrom(ob,container);
 }
 
-void
-getall()
+static void getall(CLASS_DATA *cl)
 {
-  int x, cl;
+  int x;
 
-  cl = findclass(wordbuf);
   if (brkword() != -1) {
-    getallfr();
+    getallfr(cl);
     return;
   }
-  for (x = 0; x < numobs; x++) {
+
+    for (x = lfirst_obj(ploc(mynum)); x != SET_END; x=lnext_obj(ploc(mynum))) {
+
     if (ishere(x) && !oflannel(x) && classmatch(x, cl)) {
-      sprintf(strbuf, "%s", oname(x));
+      strcpy(strbuf, oname(x));
       stp = 0;
       bprintf("%s: ", oname(x));
-      if (getobj() == -1)
+      if (getcom() == -1)
 	break;
     }
   }
 }
 
-void
-getallfr()
+static void getallfr(CLASS_DATA *cl)
 {
-  int a, x, cl;
+  int container;
+  int ob;
 
-  cl = findclass(wordbuf);
-  if (brkword() == -1) {
-    bprintf("From what?\n");
-    return;
+  if (EQ(wordbuf,"from")) {
+    if (brkword() == -1) {
+      bprintf("From what?\n");
+      return;
+    }
   }
-  if ((a = fobna(wordbuf)) == -1) {
+  if ((container = fobna(wordbuf)) == -1) {
     bprintf("That isn't here.\n");
     return;
   }
   /* Do items */
-  for (x = 0; x < numobs; x++) {
-    if (iscontin(x, a) && !oflannel(x) && classmatch(x, cl)) {
-      sprintf(strbuf, "%s from %s", oname(x), oname(a));
+
+    for (ob = ofirst_obj(container); ob != SET_END; ob = onext_obj(container)){
+
+    if (iscontin(ob, container) && !oflannel(ob) && classmatch(ob, cl)) {
+      sprintf(strbuf, "%s from %s", oname(ob), oname(container));
       stp = 0;
-      bprintf("%s: ", oname(x));
-      if (getobj() == -1)
+      bprintf("%s: ", oname(ob));
+      if (getcom() == -1)
 	break;
     }
   }
 }
 
-void
-dropall()
+static void dropall(CLASS_DATA *cl)
 {
-  int x, cl;
+  int ob;
 
-  for (cl = findclass(wordbuf), x = 0; x < numobs; x++) {
-    if (iscarrby(x, mynum) && classmatch(x, cl)) {
-      sprintf(strbuf, "%s", oname(x));
+    for (ob = pfirst_obj(mynum); ob != SET_END; ob = pnext_obj(mynum)) {
+
+    if (iscarrby(ob, mynum) && classmatch(ob, cl)) {
+      strcpy(strbuf, oname(ob));
       stp = 0;
-      bprintf("%s: ", oname(x));
-      if (dropitem() == -1)
+      bprintf("%s: ", oname(ob));
+      if (dropobj() == -1)
 	return;
     }
   }
 }
 
-int
-ishere(int item)
+
+/* Is the item in the same room as the player ?
+ */
+Boolean p_ishere(int plr,int item)
 {
-  if (plev(mynum) < LVL_WIZARD && otstbit(item, ofl(Destroyed)))
-    return 0;
-  if (ocarrf(item) == 1 || oloc(item) != ploc(mynum))
-    return 0;
-  return 1;
+	if (plev(plr) < LVL_WIZARD && otstbit(item, OFL_DESTROYED))
+	        return False;
+
+	if (ocarrf(item) != IN_ROOM || oloc(item) != ploc(plr)
+	    || ploc(plr) == 0)
+	  return False;
+
+  return True;
 }
 
-int
-iscarrby(int item, int user)
+
+Boolean ishere(int item)
 {
-  if (plev(mynum) < LVL_WIZARD && otstbit(item, ofl(Destroyed)))
-    return 0;
-  if (ocarrf(item) != 1 && ocarrf(item) != 2)
-    return 0;
-  if (oloc(item) != user)
-    return 0;
-  return 1;
+	return p_ishere(mynum,item);
 }
 
-int
-dropitem()
+
+
+Boolean iscarrby(int item, int user)
 {
-  int a, i, l;
+	if (plev(mynum) < LVL_WIZARD && otstbit(item, OFL_DESTROYED))
+	        return False;
+
+	if (ocarrf(item) < CARRIED_BY)
+	        return False;
+
+	if (oloc(item) != user)
+	        return False;
+
+	return True;
+}
+
+
+/* Is the object in a players inventory ?
+ * (also handles objects in a container in a container etc...)
+ */
+Boolean in_inventory(int obj, int player)
+{
+	while (ocarrf(obj) == IN_CONTAINER)  obj = oloc(obj);
+
+	return iscarrby(obj, player);
+}
+
+
+
+int dropobj(void)
+{
+  CLASS_DATA *cl;
+  int a, i, l, j;
   char bf[80];
 
   if (brkword() == -1) {
     bprintf("Drop what?\n");
     return -1;
   }
-  if (findclass(wordbuf) != -1) {
-    dropall();
+  if ((cl = findclass(wordbuf)) != NULL) {
+    dropall(cl);
     return 0;
   }
   if ((a = fobnc(wordbuf)) == -1) {
     bprintf("You don't have it.\n");
     return -1;
   }
-  if (plev(mynum) < LVL_WIZARD && a == OBJ_RUNESWORD) {
+  if (plev(mynum) < LVL_WIZARD && onum(a) == OBJ_CASTLE_RUNESWORD) {
     bprintf("You can't let go of it!\n");
     return 0;
   }
-  if (a == OBJ_STAFF_2 && ploc(mynum) != -4 && ploc(mynum) != -5 &&
-      !ishere(OBJ_HOLE_5))
-    {
-      destroy(OBJ_STAFF_2);
-      l = ploc(mynum);
-      setploc(MOB_SNAKE, l);
-      bprintf("As you drop the staff, it comes alive and starts wiggling!\n");
-      return;
-    }
-  if (a == OBJ_CUP && ploc(MOB_SERAPH) == -5)
-    setplev(MOB_SERAPH, -2);
+  if (a == OBJ_CATACOMB_CUPSERAPH
+      && ploc((max_players + MOB_CATACOMB_SERAPH)) == LOC_START_CHURCH)
+    setplev((max_players + MOB_CATACOMB_SERAPH), -2);
   l = ploc(mynum);
-
   /* MINE LADDER */
-  if (l == RM_QUARRY4 || l == RM_QUARRY5) {
+  if (l == LOC_QUARRY_TUNNEL || l == LOC_QUARRY_LADDER_UU) {
     bprintf("The %s falls down the ladder.\n", oname(a));
-    l = RM_QUARRY9;
+    l = LOC_QUARRY_LADDER_UD;
   }
-  if ((l >= RM_QUARRY16 && l <= RM_QUARRY14) ||
-      (l >= RM_QUARRY11 && l <= RM_QUARRY9)) {
+  if ((l >= LOC_QUARRY_LADDER_D4 && l <= LOC_QUARRY_LADDER_D2) ||
+      (l >= LOC_QUARRY_LADDER_D1 && l <= LOC_QUARRY_LADDER_UD)) {
     bprintf("The %s falls down the ladder.\n", oname(a));
-    l = RM_QUARRY8;
+    l = LOC_QUARRY_MINE;
   }
-
   /* ALL AT SEA */
-  if (ltstflg(l, lfl(OnWater)) && a != OBJ_BOAT && a != OBJ_RAFT) {
+  if (ltstflg(l, LFL_ON_WATER) && onum(a) != OBJ_VILLAGE_BOAT && 
+      onum(a) != OBJ_VILLAGE_RAFT && onum(a) != OBJ_ANCIENT_CANOE) {
     bprintf("The %s sinks into the sea.\n", oname(a));
-    l = RM_SEA7;
+    l = LOC_SEA_7;
   }
-
   /* OAKTREE */
-  if ((l >= RM_OAKTREE6 && l <= RM_OAKTREE2) || l == RM_OAKTREE9 ||
-      (l >= RM_OAKTREE18 && l <= RM_OAKTREE13))
-    {
-      bprintf("The %s falls through the leaves to the ground far below.\n",
-	      oname(a));
-      l = RM_OAKTREE1;
-      sendsys("", "", -10000, l, "Something falls to the ground.\n");
-    }
-  for (i = OBJ_PIT_1; i <= OBJ_PIT_6; i++)
+  if ((l >= LOC_OAKTREE_MAGNOLIA && l <= LOC_OAKTREE_TREE1)
+      || l == LOC_OAKTREE_ILEX
+      || (l >= LOC_OAKTREE_WALNUT && l <= LOC_OAKTREE_FIG)) {
+    bprintf("The %s falls through the leaves to the ground far below.\n",
+	    oname(a));
+    l = LOC_OAKTREE_GROVE;
+    sendf(l, "Something falls to the ground.\n");
+  }
+  for (j = 0; (i = pits[j++]) != -1;)
     if (oloc(i) == l)
       break;
-  if ((i <= OBJ_PIT_6 && !state(i)) || oloc(OBJ_HOLE_5) == l)
-    {
-      bprintf("It disappears into the bottomless pit.....\n");
-      sprintf(bf, "\001p%s\377 drops the %s into the pit.\n",
-	      pname(mynum), oname(a));
-      sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), bf);
-      dropinpit(a);
-      return 0;
-    }
-  else if (i <= OBJ_PIT_6)
-    {
-      bprintf("It disappears into the bottomless pit.....and hits bottom.\n");
-      sprintf(bf, "\001p%s\377 drops the %s into the pit.\n",
-	      pname(mynum), oname(a));
-      sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), bf);
-      l = RM_CATACOMB45;
-      setoloc(a, l, 0);		/* to spherical room in CATACOMB section */
-      sendsys("", "", -10000, l, "Something falls to the ground.\n");
-      return 0;
-    }
-  setoloc(a, l, 0);
-  sprintf(bf, "\001p%s\377 drops the %s.\n", pname(mynum), oname(a));
-  sendsys(pname(mynum), pname(mynum), -10000, ploc(mynum), bf);
+  if (i >= 0 && state(i) == 0 || oloc(OBJ_SEA_HOLE) == l) {
+    bprintf("The %s disappears into the bottomless pit.....\n", oname(a));
+    send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	     "\001p%s\003 drops the %s into the pit.\n",
+	     pname(mynum), oname(a));
+    dropinpit(a);
+    return 0;
+  }
+  else if (i >= 0) {
+    bprintf("The %s disappears into the bottomless pit....."
+	    "and hits bottom.\n", oname(a));
+    send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	     "\001p%s\003 drops the %s into the pit.\n",
+	     pname(mynum), oname(a));
+    l = LOC_CATACOMB_CHAMBER;
+    setoloc(a, l, IN_ROOM);	/* to spherical room in CATACOMB section */
+    sendf(l, "Something falls to the ground.\n");
+    return 0;
+  }
+  setoloc(a, l, IN_ROOM);
+  send_msg(ploc(mynum), 0, LVL_MIN, LVL_MAX, mynum, NOBODY,
+	   "\001p%s\003 drops the %s.\n", pname(mynum), oname(a));
   if (l = ploc(mynum))
     bprintf("Ok\n");
   return 0;
 }
 
-void
-dropinpit(int o)
+void dropinpit(int o)
 {
   int i;
 
   setpscore(mynum, pscore(mynum) + ovalue(o));
-  calibme();
-  osetbit(o, ofl(Destroyed));
-  setoloc(o, RM_PIT1, 0);
-  if (otstbit(o, ofl(Container)))
-    for (i = 0; i < numobs; i++)
-      if (iscontin(i, o))
+
+  calib_player(mynum);
+
+  osetbit(o, OFL_DESTROYED);
+  setoloc(o, LOC_PIT_PIT, IN_ROOM);
+  if (o == OBJ_WASTE_THRONE) {
+    if (alive(i = max_players + MOB_WASTE_DJINNI) == -1 &&
+	pscore(i) == mynum) {
+      qsetflg(mynum, Q_FIERY_KING);
+    }
+  } else if (o == OBJ_TOWER_CROWN) {
+    if (alive(i = max_players + MOB_TOWER_SHAZARETH) == -1 &&
+	pscore(i) == mynum) {
+      qsetflg(mynum, Q_TOWER);
+    }
+  }
+  if (otstbit(o, OFL_CONTAINER)) {
+
+      for (i = ofirst_obj(o); i != SET_END; i = onext_obj(o))
+
+      if (iscontin(i, o)) {
 	dropinpit(i);
-}
-
-void
-lisobs()
-{
-  lojal2(1);
-  showwthr();
-  lojal2(0);
-}
-
-void
-lojal2(int n)
-{
-  int a;
-
-  for (a = 0; a < numobs; a++) {
-    if (ishere(a) && oflannel(a) == n) {
-      if (state(a) > 3)
-	continue;
-      if (!EMPTY(olongt(a, state(a)))) {
-	if (otstbit(a, ofl(Destroyed)))
-	  bprintf("--");
-	oplong(a);
-	strcpy(wd_it, oname(a));
       }
-      else if (my_lev > 9999)
-	bprintf("<marker>%s\n", oname(a));
-    }
   }
 }
 
-void
-dumpitems()
+
+/* List the objects at the current players location.
+ */
+void list_objects(int n, Boolean f)
 {
-  dumpstuff(mynum, ploc(mynum));
-}
+	int i, a;
 
-void
-dumpstuff(int n, int loc)
-{
-  int b;
+	for (i = 0; i < lnumobs(ploc(mynum)); i++) {
 
-  for (b = 0; b < numobs; b++)
-    if (iscarrby(b, n)) {
-      if (loc == RM_PIT1)
-	dropinpit(b);
-      else
-	setoloc(b, loc, 0);
-    }
-}
+		a = lobj_nr(i, ploc(mynum));
 
-void
-whocom()
-{
-  whop2(0, 0, MAX_USERS);
-}
-
-void
-mwhocom()
-{
-  if (plev(mynum) >= LVL_WIZARD) 
-    whop2(0, MAX_USERS, MAX_CHARS);
-  else
-    erreval();
-}
-
-void
-whop2(int mode, int st, int end)
-{
-  int a, bas;
-
-  bas = end;
-  a = st;
-  if (a == 0 && !mode)
-    bprintf("Players\n-------\n");
-  if (a == MAX_USERS && !mode)
-    bprintf("Mobiles\n-------\n");
-  for (; a < bas; a++) {
-    if (EMPTY(pname(a)))
-      continue;
-    if (seeplayer(a)) {
-      if (mode) {
-	bprintf("%-14s", pname(a));
-	bprintf(ptstflg(a, pfl(Possessed)) ? "*" : " ");
-      }
-      else
-	dispuser(a);
-    }
-    if (mode && seeplayer(a)) {
-      if (plev(mynum) >= LVL_WIZARD)
-	showploc(a);
-      else {
-	if (pvis(a))
-	  bprintf(")");
-	bprintf("\n");
-      }
-    }
-  }
-  bprintf("\n");
-}
-
-void
-dispuser(int ubase)
-{
-  if (pstr(ubase) < 0 ||
-      (ubase != mynum && pvis(ubase) > 0 && pvis(ubase) > plev(mynum)))
-    return;
-  if (pvis(ubase))
-    bprintf("(");
-  displevel(plev(ubase), psex(ubase), pname(ubase));
-  if (pvis(ubase))
-    bprintf(")");
-  if (plev(mynum) >= LVL_WIZARD && ppos(ubase) == -2)
-    bprintf(" [out of %s mind]", psex(ubase) ? "her" : "his");
-  bprintf("\n");
-}
-
-void
-displevel(int l, int s, char *name)
-{
-  FILE *fp;
-  char line[150];
-  int flag;
-
-  if ((fp = fopen(LEVEL_FILE, "r")) == NULL) {
-    bprintf("%s The Unknown", name);
-    return;
-  }
-  for (flag = 0; fgets(line, sizeof line, fp); ) {
-    unpack(line);
-    if (l == u.level) {
-      flag = 1;
-      break;
-    }
-  }
-  fclose(fp);
-  if (!flag) {
-    if (l >= 0)
-      bprintf("%s The Cardboard Box", name);
-    return;
-  }
-  if (!*u.m_name || s)
-    bprintf(u.f_name, name);
-  else
-    bprintf(u.m_name, name);
-}
-
-#define LEVEL_SCRATCH "titles.tmp"
-
-void
-savelevel (int l, char *title)
-{
-  FILE *fp;			/* Old titles file */
-  FILE *np;			/* New titles file */
-  char line[BUFSIZ], l2[BUFSIZ], *ptr;
-
-  /* Create scratch file. */
-  if ((np = openlock(LEVEL_SCRATCH, "w+")) == NULL)
-    {
-      bprintf("Error: Cannot open scratch pad.\n");
-      return;
-    }
-
-  /* Open titles file. */
-  if ((fp = openlock(LEVEL_FILE, "r")) == NULL)
-    {
-      bprintf("Error: Cannot open %s.\n", LEVEL_FILE);
-      return;
-    }
-
-  /* Scan for old title, copying to scratch file as we go. */
-  while (ptr = fgets(line, sizeof line, fp))
-    {
-      strcpy(l2, line);
-      unpack(line);
-      if (l <= u.level)
-	break;		/* Don't copy current title. */
-      fputs(l2, np);
-    }
-
-  /* Save new title */
-  fprintf(np, "%0d:%s\n", l, title);
-  if (l < u.level)
-    fputs(l2, np);
-  u.level = l;
-
-  /* Copy the rest of file if necessary */
-  while (fgets(line, sizeof line, fp))
-    fputs(line, np);
-  fclose(fp);
-  unlink(fp);
-  rename(LEVEL_SCRATCH, LEVEL_FILE);
-  closelock(np);
-}
-
-void unpack (char *line)
-{
-  char c, *ptr2, *ptr = line;
-
-  while (*ptr++ != ':')
-    ;
-  *(ptr - 1) = '\0';
-  u.level = atoi(line);
-  ptr2 = u.f_name;
-  while ((c = *ptr++) != ':')
-    {
-      if (c == '\n')
-	{
-	  *u.m_name = '\0';
-	  *ptr2 = '\0';
-	  return;
-	}
-      *ptr2++ = c;
-    }
-  *ptr2 = '\0';
-  ptr2 = u.m_name;
-  while ((*ptr2++ = *ptr++) != '\n')
-    ;
-  *--ptr2 = '\0';
-}
-
-int
-fpbn (char *name)
-{
-  int s;
-
-  if ((s = fpbns(name)) == -1)
-    return s;
-  return seeplayer(s) ? s : -1;
-}
-
-int
-fpbns (char *name)
-{
-  char n1[90], n2[90];
-  register int a;
-
-  for (a = 0; a < MAX_CHARS; a++)
-    {
-      lowercase(strcpy(n1, name));
-      lowercase(strcpy(n2, pname(a)));
-      lowercase(n2);
-      if (strncmp(n2, "the ", 4) == 0)
-	sprintf(n2, n2 + 4);
-      if (!EMPTY(n2) && !EMPTY(n1) && EQ(n1, n2))
-	return a;
-    }
-  return -1;
-}
-
-int
-alive(int i)
-{
-  if (pstr(i) < 1 || EMPTY(pname(i)))
-    return -1;
-  else
-    return i;
-}
-
-/*
-**  Replaces special codes in string with appropriate pronouns
-*/
-void
-pnstring(char *s, int pl)
-{
-  char *i;
-
-  while (i = index(s, '~'))
-    {
-      *i++ = 'h';
-      if (psex(pl))
-	{
-	  insertch(s, 'e', i++ - s);
-	  insertch(s, 'r', i - s);
-	}
-      else
-	{
-	  insertch(s, 'i', i++ - s);
-	  insertch(s, 'm', i - s);
-	}
-    }
-  while (i = index(s, '^'))
-    {
-      *i++ = 'h';
-      if (psex(pl))
-	{
-	  insertch(s, 'e', i++ - s);
-	  insertch(s, 'r', i - s);
-	}
-      else
-	{
-	  insertch(s, 'i', i++ - s);
-	  insertch(s, 's', i - s);
-	}
-    }
-  while (i = index(s, '@'))
-    {
-      *i++ = '\001';
-      insertch(s, 'N', i++ - s);
-      insertch(s, '%', i++ - s);
-      insertch(s, 's', i++ - s);
-      insertch(s, '\377', i - s);
-    }
-  while (i = index(s, '&'))
-    {
-      *i++ = '\001';
-      insertch(s, 'n', i++ - s);
-      insertch(s, '%', i++ - s);
-      insertch(s, 's', i++ - s);
-      insertch(s, '\377', i - s);
-    }
-}
-
-/*
-**  Brian Preble (rassilon@eddie.mit.edu)
-**  Handles external commands such as Kiss, Hug, Tickle, etc.
-*/
-int
-fextern (char *verb)
-{
-  int i, a;
-  int found = -1;
-  char x[81], line[81];
-
-  for (i = 0; i < numactions; i++)
-    if (EQ(verb, action[i]))
-      {
-	found = i;
-	break;
-      }
-  if (found == -1)		/* command not found in extern list */
-    return -1;
-  if (in_fight)
-    {
-      bprintf("Not in a fight!\n");
-      return 0;
-    }
-
-  if (tables(1) == 2)
-    return 0;
-
-  /* Is this a message action?  If so, parse accordingly.  */
-  if (!EMPTY(item1) && atstflg(i, ACT_MESSAGE))
-    {
-      if ((a = fpbn(item1)) != -1 && atstflg(i, ACT_TARGET))
-	if (!EMPTY(txt2))
-	  {
-	    strcpy(x, action_msg_to[i]);
-	    pnstring(x, mynum);
-	    sprintf(line, "%s '%s'", x, txt2);
-	    sillytp(a, line);
-	    bprintf("Ok\n");
-	    return 0;
-	  }
-	else
-	  {}
-      else if (atstflg(i, ACT_ALL))
-	{
-	  strcpy(x, action_msg_all[i]);
-	  pnstring(x, mynum);
-	  sprintf(line, "\001s%%s\377%%s %s '%s'\n\377", x, txt1);
-	  sillycom(line);
-	  bprintf("Ok\n");
-	  return 0;
-	}
-    }
-
-  if (EMPTY(item1) || !atstflg(i, ACT_TARGET))
-    {
-      if (atstflg(i, ACT_ALL))
-	{
-	  strcpy(x, action_all[i]);
-	  pnstring(x, mynum);
-	  sprintf(line, "\001s%%s\377%%s %s\n\377", x);
-	  sillycom(line);
-	  bprintf("%s\n", action_all_rsp[i]);
-	  return 0;
-	}
-      bprintf("To whom do you wish to do this thing?\n");
-      return 0;
-    }
-  if (vichere(&a) == -1)
-    return 0;
-  if (a == mynum)
-    {
-      bprintf("Good trick, that.\n");
-      return 0;
-    }
-  if (atstflg(i, ACT_HOSTILE))
-    if (testpeace())
-      {
-	bprintf("Nah, that's violent.\n");
-	return 0;
-      }
-  if (ptstflg(a, pfl(Aloof)) && plev(mynum) < LVL_WIZARD)
-    {
-      bprintf("%s thinks %s's too good for mere mortals.\n",
-	      pname(a), (psex(a) ? "she" : "he"));
-      return 0;
-    }
-  strcpy(x, action_to[i]);
-  pnstring(x, mynum);
-  sprintf(line, x, pname(a));
-  sprintf(x, "\001s%%s\377%%s %s\n\377", line);
-  sillycom(x);
-  strcpy(x, action_to_rsp[i]);
-  pnstring(x, a);
-  bprintf("%s\n", x);
-  if (atstflg(i, ACT_HOSTILE) && a >= MAX_USERS) /* hostile action? */
-    woundmn(a, 0);
-  return 0;
-}
-
-/*
-**  Brian Preble (rassilon@eddie.mit.edu)
-**  Displays list of external commands such as Kiss, Hug, Tickle, etc.
-*/
-void
-lisextern()
-{
-  int i;
-
-  bprintf("The following actions are defined:\n");
-  for (i = 0; i < numactions; i++)
-    {
-      if (i % 8 == 0)
-	bprintf("\n");
-      bprintf("%-10s", uppercase(action[i]));
-    }
-  if (i % 8 == 0)
-    bprintf("\n");
-  bprintf("%-10s", "FLOWERS");
-  i++;
-  if (i % 8 == 0)
-    bprintf("\n");
-  bprintf("%-10s", "PET");
-  i++;
-  if (i % 8 == 0)
-    bprintf("\n");
-  bprintf("%-10s", "PRAY");
-  i++;
-  if (i % 8 == 0)
-    bprintf("\n");
-  bprintf("%-10s", "TICKLE");
-  i++;
-  if (i % 8 == 0)
-    bprintf("\n");
-  bprintf("WAVE\n\n");
-}
-
-void lispeople()
-{
-  int a;
-
-  for (a = 0; a < MAX_CHARS; a++)
-    {
-      if (a == mynum)
-	continue;
-      if (!EMPTY(pname(a)) && ploc(a) == ploc(mynum) && seeplayer(a))
-	{
-	  if (a >= MAX_USERS)
-	    {
-	      if (plev(mynum) >= LVL_WIZARD && pvis(a))
-		bprintf("(");
-	      bprintf("%s", pftxt[a - MAX_USERS]);
-	      if (plev(mynum) >= LVL_WIZARD && pvis(a))
-		bprintf(")");
-	      if (gotanything(a))
-		bprintf("\n%s is", pname(a));
-	      else
-		bprintf("\n");
-	    }
-	  else
-	    {
-	      if (plev(mynum) >= LVL_WIZARD && pvis(a))
-		bprintf("(");
-	      displevel(plev(a), psex(a), pname(a));
-	      if (psex(a))
-		strcpy(wd_her, pname(a));
-	      else
-		strcpy(wd_him, pname(a));
-	      strcpy(wd_them, pname(a));
-	      bprintf(" is %shere", psitting(a) ? "sitting " : "");
-	      bprintf("%s", ptstflg(a, pfl(Glowing))
-		      ? " (providing light)" : "");
-	      if (!gotanything(a))
-		{
-		  bprintf(".");
-		  if (plev(mynum) >= LVL_WIZARD && pvis(a))
-		    bprintf(")");
-		  bprintf("\n");
+		if (ishere(a) && (n == 0 || otstmask(a,n) == f)) {
+			if (state(a) > 3)
+			  continue;
+			if (!EMPTY(olongt(a, state(a)))) {
+				if (otstbit(a, OFL_DESTROYED))
+				  bprintf("--");
+				oplong(a);
+				cur_player->wd_it = oname(a);
+			} else if (plev(mynum) >= LVL_ARCHWIZARD) {
+				bprintf("<marker>%s\n", oname(a));
+			}
 		}
-	    }
-	  if (gotanything(a))
-	    {
-	      bprintf(" carrying:");
-	      if (plev(mynum) >= LVL_WIZARD && pvis(a))
-		bprintf(")");
-	      bprintf("\n");
-	      mlobjsat(a, 4);
-	    }
 	}
-    }
 }
 
-void usercom()
+
+void dumpitems()
 {
-  whop2(1, 0, MAX_USERS);
+	dumpstuff(mynum, ploc(mynum));
 }
+
+void dumpstuff(int n, int loc)
+{
+	int b;
+
+	for (b = pfirst_obj(n); b != SET_END; b = pnext_obj(n))
+	  if (iscarrby(b, n)) {
+		  if (loc == LOC_PIT_PIT)
+		          dropinpit(b);
+		  else
+		          setoloc(b, loc, IN_ROOM);
+	  }
+}
+
+/* Set a players weapon. Sets both the carry-flag of the weapon and the
+ * 'pweapon' entry for that player in the world. A negative value removes
+ * any current weapon. Return True if a new weapon got set for the player,
+ * else False.
+ */
+Boolean set_weapon(int plr, int wpn)
+{
+	int owpn, i;
+
+	/* Erase any weapon we were allready wielding:
+	 */
+	if ((owpn = pwpn(plr)) != -1 && oloc(owpn) == plr) {
+		if (ocarrf(owpn) == BOTH_BY)
+		        setcarrf(owpn, WORN_BY);
+		else if (ocarrf(owpn) == WIELDED_BY)
+		        setcarrf(owpn, CARRIED_BY);
+	}
+
+	if (wpn < 0 || odamage(wpn) == 0 || ocarrf(wpn) < CARRIED_BY
+	    || oloc(wpn) != plr) {
+
+		setpwpn(plr, -1);
+		return False;
+	}
+
+	i = WIELDED_BY;
+
+	if (ocarrf(wpn) == WORN_BY)  i = BOTH_BY;
+
+	setpwpn(plr, wpn);
+	setcarrf(wpn, i);
+
+	return True;
+}
+
+
+
+
 
 void oplong(int x)
 {
-  if (!EMPTY(olongt(x, state(x))))
-    bprintf("%s\n", olongt(x, state(x)));
+  char *t = olongt(x, state(x));
+
+  if (!EMPTY(t)) {
+    bprintf("%s\n", t);
+  }
 }
+
 
 int gotanything(int x)
 {
-  int ct;
+	int ct;
     
-  for (ct = 0; ct < numobs; ct++)
-    if (iscarrby(ct, x))
-      return 1;
-  return 0;
+	for (ct = 0; ct < pnumobs(x); ct++) {
+
+		if (iscarrby( pobj_nr(ct, x), x))  return 1;
+	}
+
+	return 0;
 }
 
-int findclass(char *n)
+
+static CLASS_DATA *findclass(char *n)
 {
-  int a;
-    
-  for (a = 0; classnam[a]; a++)
-    if (EQ(classnam[a], n))
-      return a;
-  return -1;
+  CLASS_DATA *cl;
+
+  for (cl = class_data; cl->class_name != NULL; cl++) {
+    if (EQ(cl->class_name,n)) return cl;
+  }
+  return NULL;
 }
 
-int classmatch(int ob, int cl)
+static Boolean classmatch(int ob, CLASS_DATA *cl)
 {
-  int neg;
+  register short st;
 
-  if (cl == -1)
-    return 1;
-  neg = 0;
-  if (class_data[cl * 2 + 1] >= 0 && class_data[cl * 2 + 1] != state(ob))
-    return neg;
-  if (otstmask(ob, class_data[cl * 2]) == 0)
-    return neg;
-  return 1 - neg;
+  return (cl == NULL ||
+	  ((st = cl->class_state) < 0 || st == state(ob)) &&
+	  otstmask(ob,cl->class_mask));
 }
+
+Boolean is_classname(char *name)
+{
+	return name != NULL && findclass(name) != NULL;
+}
+
+
+/* Can player 'plyr' carry any more objects now ?
+ */
+Boolean cancarry(int plyr)
+{
+	int i, a;
+	int num = 0;
+
+	if (plev(plyr) >= LVL_WIZARD || plyr >= max_players)
+	        return True;
+
+	for (i = 0; i < pnumobs(plyr); i++) {
+
+		a = pobj_nr(i, plyr);
+
+		if (iscarrby(a, plyr) && !iswornby(a, plyr)) num++;
+	}
+
+	return num < plev(plyr) + 5;
+}
+
+
+Boolean iswornby( int ob, int plr)
+{
+	return isworn(ob) && iscarrby(ob, plr);
+}
+
+/* Is object 'ob' available ?
+ */
+Boolean isavl(int ob)
+{
+	return ishere(ob) || iscarrby(ob, mynum);
+}
+
+
+/* Try to reset an object, return True on success.
+ */
+Boolean reset_object(int o)
+{
+	int loc;
+
+	osetbaseval(o, ovalue_reset(o));
+	osetsize(o, osize_reset(o));
+	osetvis(o, ovis_reset(o));
+	osetdamage(o, odamage_reset(o));
+	osetarmor(o, oarmor_reset(o));
+	state(o) = state_reset(o);
+	obits(o) = obits_reset(o);
+
+	if (!opermanent(o)) {
+		if (ocarrf_reset(o) == IN_ROOM) {
+		        if ((loc = find_loc_by_id(oloc_reset(o))) == 0) {
+				destroy(o);
+				return False;
+			}
+		}
+		else
+		if (ocarrf_reset(o) == IN_CONTAINER) {
+			if ((loc = find_object_by_id(oloc_reset(o))) < 0) {
+				destroy(o);
+				return False;
+			}
+		}
+		else
+		if (ocarrf_reset(o) >= CARRIED_BY) {
+			if ((loc = find_mobile_by_id(oloc_reset(o))) < 0) {
+				destroy(o);
+				return False;
+			}
+		}
+	} else {
+		loc = oloc_reset(o);
+		if (ocarrf_reset(o) >= CARRIED_BY) loc += max_players;
+	}
+
+	setoloc(o, loc, ocarrf_reset(o));
+
+	return True;
+}
+
+
+
+void setobjstate(int obj, int state)
+{
+	if (state >= 0 && state <= omaxstate(obj)
+	    && (olinked(obj) == -1 || state <= omaxstate(olinked(obj)))) {
+
+		state(obj) = state;
+
+		if (olinked(obj) != -1) {
+			state( olinked(obj) ) = state;
+		}
+
+	} else {
+		mudlog( "Attempt to set object %s[%d] to state %d",
+		       oname(obj), obj, state);
+	}
+}
+
+
+void destroy(int ob)
+{
+	osetbit(ob, OFL_DESTROYED);
+	setoloc(ob, LOC_DEAD_DESTROYED, IN_ROOM);
+}
+
+void eat(int ob)
+{
+	  if (!opermanent(ob) && otemporary(ob)) {
+		  destruct_object(ob, NULL);
+	  }
+	  else {
+		  osetbit(ob, OFL_DESTROYED);
+		  setoloc(ob, LOC_DEAD_EATEN, IN_ROOM);
+	  }
+}
+
+void create(int ob)
+{
+	oclrbit(ob, OFL_DESTROYED);
+}
+
+
+/* SET Object LOCation.
+ */
+void setoloc(int obj, int loc, int c)
+{
+	int j;
+
+	/* First remove the object from wherever it is:
+	 */
+	switch( ocarrf(obj) ) {
+	case IN_ROOM:
+		if (exists(oloc(obj))) remove_int(obj, linv(oloc(obj)));
+		break;
+	case IN_CONTAINER:
+		if (oloc(obj) >= 0 && oloc(obj) < numobs)
+		        remove_int(obj, oinv(oloc(obj)));
+		break;
+	case CARRIED_BY:
+	case WORN_BY:
+	case WIELDED_BY:
+	case BOTH_BY:
+		if (oloc(obj) >= 0 && oloc(obj) < numchars)
+		        remove_int(obj, pinv(oloc(obj)));
+		break;
+	}
+
+	/* Then add it to the right place:
+	 */
+	switch(c) {
+	case IN_ROOM:
+		if (exists(loc)) add_int(obj, linv(loc));
+		break;
+	case IN_CONTAINER:
+		if (loc >= 0 && loc < numobs) add_int(obj, oinv(loc));
+		break;
+	case CARRIED_BY:
+	case WORN_BY:
+	case WIELDED_BY:
+	case BOTH_BY:
+		if (loc >= 0 && loc < numchars) add_int(obj, pinv(loc));
+		break;
+	}
+
+	oloc(obj) = loc;
+	ocarrf(obj) = c;
+
+	if (c >= WIELDED_BY) set_weapon(loc, obj);
+}
+
+
+
+/* is there an object, either carried by the player or in the same
+ * room that satisfies certain criteria (determined by mask) ?
+ */
+Boolean p_ohany(int plr,int mask)
+{
+	int i, a;
+
+	mask &= 0xffff;
+
+	for (i = 0; i < lnumobs(ploc(plr)); i++) {
+
+		a = lobj_nr(i, ploc(plr));
+
+		if (p_ishere(plr, a) && (obits(a) & mask)) return True;
+	}
+
+	for (i = 0; i < pnumobs(plr); i++) {
+
+		a = pobj_nr(i, plr);
+
+		if (iscarrby(a, plr) && (obits(a) & mask)) return True;
+	}
+
+	return False;
+}
+
+
+Boolean ohany(int mask)
+{
+	return p_ohany(mynum,mask);
+}
+
+int ovalue(int ob)
+{
+	return (tscale() * obaseval(ob) / 9);
+}
+
+
+char *xdesloc(char *b, int loc, int cf)
+{
+  char k[256];
+  char v[256];
+  char buff[256];
+
+  *buff = '\0';
+
+  while (cf == IN_CONTAINER) {
+	  
+	  sprintf(v,"In the %s ", oname(loc));
+	  strcat(buff, v);
+	  cf = ocarrf(loc);
+	  loc = oloc(loc);
+  }
+
+  if (cf >= CARRIED_BY) {
+	  if (cf == CARRIED_BY) strcat(buff, "Carried");
+	  if (cf == WORN_BY)    strcat(buff, "Worn");
+	  if (cf == WIELDED_BY) strcat(buff, "Wielded");
+	  if (cf == BOTH_BY)    strcat(buff, "Worn & Wielded");
+	  sprintf(v," by %s ", see_name(mynum, loc));
+	  strcat(buff, v);
+	  loc = ploc(loc);
+  }
+
+  if (!exists(loc)) {
+	  if (plev(mynum) < LVL_GOD) return strcpy(b,"Out in the void");
+	  else {
+		  sprintf(b,"NOT IN UNIVERSE[%d]", loc);
+		  return b;
+	  }
+  }
+
+  if (*buff != '\0')  strcat(buff, "in ");
+
+  if (plev(mynum) >= LVL_WIZARD)
+          sprintf(v, "| %s", xshowname(k,loc));
+  else
+    *v = '\0';
+
+  strcat(buff, sdesc(loc));
+
+  sprintf(b,"%-40.40s%s", buff, v);
+
+  return b;
+}
+
+void desloc(int loc, int cf)
+{
+	char b[512];
+
+	bprintf("%s\n", xdesloc(b,loc,cf));
+}
+
+Boolean otstmask(int ob, int v)
+{
+	return tstbits(obits(ob),v);
+}
+
+
+/* Will the container x hold object y ?
+ */
+Boolean willhold(int x, int y)
+{
+	int i, a, sum = 0;
+
+	for (i = 0; i < onumobs(x); i++) {
+
+		a = oobj_nr(i, x);
+
+		if (iscontin(a, x)) sum += osize(a);
+	}
+
+	sum += osize(y);
+
+	return sum <= osize(x);
+}
+
+int ohereandget(void)
+{
+  int obj;
+
+  if (EMPTY(item1)) {
+    bprintf("Tell me more?\n");
+    return -1;
+  }
+  if ((obj = ob1) == -1) {
+    bprintf("It isn't here.\n");
+  }
+  return obj;
+}
+
+
+/* plx drops the objects that he carries that are not worn or wielded,
+ */
+void drop_some_objects(int plx)
+{
+	int obj;
+
+	for (obj = pfirst_obj(plx); obj != SET_END; obj = pnext_obj(plx)) {
+		if (ocarrf(obj) == CARRIED_BY && oloc(obj) == plx) {
+			setoloc(obj, ploc(plx), IN_ROOM);
+		}
+	}
+}
+
+
+char *xdesrm(char *b, int loc, int cf)
+{
+  char k[25];
+  char v[30];
+
+  if (plev(mynum) < LVL_WIZARD && cf == IN_ROOM && loc == LOC_LIMBO_LIMBO) {
+    return strcpy(b,"Somewhere.....");
+  }
+  if (cf == IN_CONTAINER) {
+    sprintf(b,"In the %s", oname(loc));
+    return b;
+  }
+  if (cf >= CARRIED_BY) {
+    if (!seeplayer(loc))
+      return strcpy(b,"Somewhere.....");
+    else {
+      sprintf(b,"Carried by %s", pname(loc));
+      return b;
+    }
+  }
+  if (!exists(loc)) {
+    if (plev(mynum) < LVL_ARCHWIZARD)
+      return strcpy(b,"Out in the void");
+    else {
+      sprintf(b,"NOT IN UNIVERSE[%d]", loc);
+      return b;
+    }
+  }
+  if (plev(mynum) >= LVL_WIZARD)
+    sprintf(v, "| %s", xshowname(k,loc));
+  else
+    *v = 0;
+
+  sprintf(b,"%-30s%s", sdesc(loc), v);
+  return b;
+}
+
+
+void desrm(int loc, int cf)
+{
+	char b[80];
+
+	bprintf("%s\n", xdesrm(b,loc,cf));
+}
+

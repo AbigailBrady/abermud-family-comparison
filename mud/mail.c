@@ -1,110 +1,98 @@
-/*
-**  The MAIL command.
-*/
-
-#include <strings.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/errno.h>
+#include <unistd.h>
 #include "kernel.h"
-#include "macros.h"
-#include "support.h"
-#include "uaf.h"
-#include "bprintf.h"
-#include "blib.h"
-#include "pflags.h"
-#include "mail.h"
+#include "timing.h"
+#include "sflags.h"
+#include "sendsys.h"
+#include "writer.h"
+#include "mobile.h"
 
-void
-mailcom()
+
+
+static void    mail_handler(void *w, void *ad, int adlen);
+
+
+/* Send and receive mail.
+ */
+void mailcom()
 {
-  time_t log_time;
-  char *time_string, file[80], line[80], *name;
-  extern int errno;
-  FILE *fl;
-  PERSONA junk;
+    PERSONA        p;
+    char           file[256];
 
-  if (EMPTY(item1))
-    {
-      sprintf (file, "%s%s", MSGFILE, pname(mynum));
-      if (fl = fopen(file, "r"))
-	{
-	  bprintf ("\n");
-	  while (fgets(line, sizeof line, fl))
-	    bprintf ("%s", line);
-	  fclose (fl);
-	  unlink (file);
-	  bprintf ("\n");
-	  return;
-	}
-      switch (errno)
-	{
-	case EACCES :
-	  bprintf("Your answering machine seems to be broken.\n");
-	  return;
-	  default :
-	  bprintf("Sorry, you have no messages!\n");
-	  return;
-	}
-    }
-  if (ptstflg(mynum, pfl(CannotMSG)))
-    {
-      bprintf("You have no phone.\n");
-      return;
-    }
-  else if (findpers(item1, &junk) == 0)
-    {
-      bprintf("That player is not in the AberMUD phone book.\n");
-      return;
-    }
+    int            unlink(char *file);
 
-  convflg = 2;
-  name = item1;
-  if (islower(*name))
-    *name = toupper(*name);
-
-  sprintf (file, "%s%s", MSGFILE, name);
-
-  if ((mail_fl = openlock (file, "a")) == NULL)
-    switch (errno)
-      {
-      case EACCES :
-	bprintf("There is a ring, but no answer.\n");
+    if (cur_player->aliased || cur_player->polymorphed != -1) {
+	bprintf("Not while aliased.\n");
 	return;
-	default :
-	bprintf("Your phone is not functioning properly.\n");
-	mudlog("ERROR in msgcom() at fopen(message-file, append): %d",
-	       errno);
-	return;
-      }
-  else
-    {
-      (void) time(&log_time);
-      time_string = ctime(&log_time);
-      *index(time_string, '\n') = 0;
+    }
 
-      fprintf(mail_fl, "From %s at %s\n", pname(mynum), time_string);
-      bprintf("Composing mail.  Type '*help mail' for help.\n");
+    if (brkword() != -1) {
+
+	if (!getuaf(wordbuf, &p)) {
+	    bprintf("No such player in system.\n");
+	    return;
+	}
+
+        start_writer( "End the message with ** on the beginning of a new line",
+                       "MAIL>",
+                       p.p_name,
+                       PNAME_LEN + 1,
+                       mail_handler,
+                       WR_CMD|'*',
+                       200);
+        return;
+
+    } else { 
+
+	sprintf(file, MAIL_DIR"/%s", pname(mynum));
+
+	if (access(file,R_OK) == -1) {
+	    bprintf("No mail for %s.\n", pname(mynum));
+	    sclrflg(mynum, SFL_MAIL);
+	} 
+
+	disp_file(file, NULL);
+
+        unlink(file);
+        sclrflg(mynum, SFL_MAIL);
     }
 }
 
-/* Checks for new mail. */
 
-void
-checkmail()
+static void mail_handler(void *w,void *ad, int adlen)
 {
-  char file[BUFSIZ];
-  FILE *fl;
-  struct stat msgstatus;
-  static time_t last_modified = 0;
-  extern int errno;
+     PERSONA p;
+     int     y;
+     FILE   *f;
+     char    b[100];
+ 
+     strcpy(b, MAIL_DIR "/");
+     strcat(b, (char *)ad);
 
-  sprintf (file, "%s%s", MSGFILE, pname(mynum));
-  if (stat (file, &msgstatus) != -1)		/* see when last modified */
-    if (last_modified != msgstatus.st_mtime)
-      {
-	bprintf ("\007You have new mail.  Type MAIL to read.\n");
-	last_modified = msgstatus.st_mtime;
-      }
-}
+     if ((f = fopen(b,"a")) == NULL) {
+         progerror(b);
+         terminate_writer(w);
+         return;
+     } else {
+	 fprintf(f, "Message from %s at %s\n",
+		 pname(mynum), time2ascii(TIME_CURRENT)); 
+
+         while (wgets(b,sizeof(b),w) != NULL) {
+             fputs(b, f);
+         }
+
+	 fclose(f);
+
+	 if ((y = fpbns((char *)ad)) != -1) {
+	     ssetflg(y, SFL_MAIL);
+	     sendf(y, "**\a You have received new mail from %s **\n",
+		   pname(mynum));
+	 }
+	 else if (getuaf((char *)ad, &p)) {
+	     xsetbit(p.p_sflags, SFL_MAIL);
+	     putuaf(&p);
+	 } else 
+	     mudlog("mail_handler: %s didn't exist");
+     }
+}   
+
+

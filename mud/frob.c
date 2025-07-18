@@ -1,121 +1,208 @@
-/*
-**  The routines for frobbing players.
-*/
-
-#include <strings.h>
 #include "kernel.h"
-#include "macros.h"
+#include "levels.h"
 #include "sendsys.h"
+#include "pflags.h"
+#include "sflags.h"
 #include "frob.h"
 #include "exec.h"
-#include "mud.h"
-#include "parse.h"
-#include "support.h"
 #include "uaf.h"
-#include "key.h"
+#include "mobile.h"
 
-void
-frobnicate ()
+#define PFLAGS_FROB ((1<<PFL_FROB)|(1<<PFL_CH_SCORE)|(1<<PFL_CH_LEVEL))
+
+
+#define cant_fr(x,l,w,a,d,g) (x<a && l>=w || x<d && l>=a || x<g && l>=d)
+#define cant_frob(lev) \
+cant_fr(plev(mynum),lev,LVL_WIZARD,LVL_ARCHWIZARD,LVL_DEMI,LVL_GOD)
+
+#define cant_fro(lev) (lev < LVL_MIN || lev >= LVL_MAX || cant_frob(lev))
+
+struct _f {
+  int state;
+  int oldwork;
+  int oldlev;
+  int level;
+  int strength;
+  int score;
+  char *oldprompt;
+  char name[PNAME_LEN];
+};
+
+
+
+
+static void log(char *n, int lev, int sco, int str)
 {
-  int x;
-  char ary[128], bf1[8], bf2[8], bf3[8];
+  mudlog("FROB: %s by %s: Lev = %d, Sco = %d, Str = %d",
+	 n, pname(mynum), lev, sco, str);
+}
 
-  if (plev(mynum) < LVL_ARCHWIZARD)
-    {
+void frobcom(char *line)
+{
+  PERSONA p;
+  struct _f *f;
+  int x;
+
+  int sco, lev, str;
+  Boolean gsco, glev, gstr;
+  char *s;
+  int i[6];
+
+  if (line == NULL) { /* First (initial) time */
+    if (!tstbits(pflags(mynum).l,PFLAGS_FROB)) {
       erreval();
       return;
     }
-  if (brkword() == -1)
-    {
-      bprintf("Frob whom?\n");
-      return;
-    }
-  if ((x = fpbn(wordbuf)) == -1)
-    {
-      frobinfile();
-      return;
-    }
-  if (x >= MAX_USERS)
-    {
-      bprintf("Can't frob mobiles, old bean.\n");
-      return;
-    }
-  if ((plev(x) >= LVL_ARCHWIZARD) && (plev(mynum) < LVL_GOD))
-    {
-      bprintf("You can't frob %s!\n", pname(x));
-      return;
-    }
-  bprintf("Level is: %d\n", plev(x));
-  sig_alon();
-  key_input("New Level: ", 6);
-  sig_aloff();
-  strcpy(bf1, key_buff);
-  if (atoi(bf1) >= LVL_ARCHWIZARD && plev(mynum) < LVL_GOD)
-    {
-      bprintf("You can't do that.\n");
-      return;
-    }
-  bprintf("Score is: %d\n", pscore(x));
-  sig_alon();
-  key_input("New Score: ", 8);
-  sig_aloff();
-  strcpy(bf2, key_buff);
-  bprintf("Strength is: %d\n", pstr(x));
-  sig_alon();
-  key_input("New Strength: ", 7);
-  sig_aloff();
-  strcpy(bf3, key_buff);
-  sprintf(ary, "%s.%s.%s.", bf1, bf2, bf3);
-  sendsys(pname(x), pname(x), SYS_FROB, 0, ary);
-  closeworld();
-  mudlog("FROB: %s by %s", pname(x), pname(mynum));
-  mudlog("  FROB: t%s %s", ary, "");
-  bprintf("Ok\n");
-}
+    if (brkword() == -1
+	|| ((x = fpbn(wordbuf)) == -1 && !ptstflg(mynum,PFL_UAF))) {
 
-void
-frobinfile ()
-{
-  PERSONA x;
-  char ary[128];
-  char bf1[8], bf2[8], bf3[8];
-
-  if (findpers(wordbuf, &x) == 0)
-    {
-      bprintf("No such persona in system.\n");
+      bprintf("Frob who?\n");
       return;
     }
-  if (x.p_level >= LVL_ARCHWIZARD && plev(mynum) < LVL_GOD)
-    {
+    if (x == -1) {
+      if (!getuaf(wordbuf, &p)) {
+	bprintf("No such persona in system.\n");
+	return;
+      }
+      if (cant_frob(p.p_level)) {
+	bprintf("You can't frob %s!\n", wordbuf);
+	return;
+      }
+    } else if (x >= max_players) {
+      bprintf("You can't frob mobiles!\n");
+      return;
+    } else if (cant_frob(plev(x))) {
       bprintf("You can't frob %s!\n", wordbuf);
       return;
+    } else {
+      p.p_level = plev(x);
+      p.p_strength = pstr(x);
+      p.p_score = pscore(x);
+      strcpy(p.p_name, pname(x)); 
     }
-  bprintf("Level is: %d\n", x.p_level);
-  sig_alon();
-  key_input("New Level: ", 6);
-  sig_aloff();
-  strcpy(bf1, key_buff);
-  if (atoi(bf1) >= LVL_ARCHWIZARD && plev(mynum) < LVL_GOD)
-    {
-      bprintf("You can't do that.\n");
-      return;
+    f = NEW(struct _f,1);
+    strcpy(f->name, p.p_name);
+    f->state = 0;
+    f->level = p.p_level;
+    f->oldlev = p.p_level;
+    f->strength = p.p_strength;
+    f->score = p.p_score;
+    f->oldprompt = COPY(cur_player->cprompt);  
+    strcpy(cur_player->cprompt,"New Level: ");
+    f->oldwork = cur_player->work;
+    cur_player->work = (int)f;
+    bprintf( "Level is: %d\n", f->level);
+    push_input_handler(frobcom);
+  } else {
+    while (*line == ' ' || *line == '\t') ++line;
+    f = (struct _f *)cur_player->work;
+    switch(f->state) {
+    case 0:
+      if (*line == '\0') {
+	x = f->level;
+      } else {
+	x = atoi(line);
+      }
+      if (x < LVL_NOVICE || x > LVL_MAX) {
+	bprintf("Level must be between %d and %d\n", LVL_NOVICE, LVL_MAX);
+	f->state = 20;
+      } else if (cant_fro(x)) {
+	bprintf("You can't do that.\n");
+	f->state = 20;
+      } else {
+	f->level = x;
+	f->state = 1;
+	bprintf("Score is: %d\n", f->score);
+	strcpy(cur_player->cprompt,"New Score: ");
+      }
+      break;
+    case 1:
+      if (*line == '\0') {
+	x = f->score;
+      } else {
+	x = atoi(line);
+      }
+      f->score = x;
+      f->state = 2;
+      bprintf("Strength is: %d\n", f->strength);
+      strcpy(cur_player->cprompt,"New Strength: ");
+      break;
+    case 2:
+      if (*line == '\0') {
+	x = f->strength;
+      } else {
+	x = atoi(line);
+      }
+      if ( x <= 0) {
+	bprintf("Strength must be positive.\n");
+	f->state = 20;
+      } else {
+	f->strength = x;
+	if ( (x = fpbn(f->name)) == -1) {
+	  if (!ptstflg(mynum,PFL_UAF)) {
+	    bprintf( "%s isn't here.\n", f->name);
+	    f->state = 20;
+	  } else if (!getuaf(f->name, &p)) {
+	    bprintf("No player named %s.\n", f->name);
+	    f->state = 20;
+	  }
+	} else {
+	  p.p_level = plev(x);
+	  p.p_strength = pstr(x);
+	  p.p_score = pscore(x);
+	}
+	if (f->state == 2) {
+	  log(f->name, f->level, f->score, f->strength);
+	  if (x >= 0) {
+	    setpstr(x,f->strength);
+	    setpscore(x,f->score);
+	    setplev(x,f->level);
+	    if (wlevel(f->level) != wlevel(f->oldlev)) {
+	      set_xpflags(f->level, &pflags(x), &pmask(x));
+	    }
+
+	    if (f->level <= LVL_WIZARD || f->oldlev <= LVL_WIZARD) {
+	      setptitle(x, std_title(f->level, psex(x)));
+	    }
+
+	  } else {
+	    p.p_level = f->level;
+	    p.p_strength = f->strength;
+	    p.p_score = f->score;
+	    if (wlevel(f->level) != wlevel(f->oldlev)) {
+	      set_xpflags(f->level, &p.p_pflags, &p.p_mask);
+	    }
+
+	    if (f->level <= LVL_WIZARD || f->oldlev <= LVL_WIZARD) {
+	      strcpy(p.p_title, 
+		     std_title(f->level, xtstbit(p.p_sflags, SFL_FEMALE)));
+	    }
+
+	    putuaf(&p);
+	  }
+	  update_wizlist(f->name, wlevel(f->level));
+	  bprintf("Ok.\n");
+	  f->state = 20;
+	}
+      }
+      break;
     }
-  bprintf("Score is: %d\n", x.p_score);
-  sig_alon();
-  key_input("New Score: ", 7);
-  sig_aloff();
-  strcpy(bf2, key_buff);
-  bprintf("Strength is: %d\n", x.p_strength);
-  sig_alon();
-  key_input("New Strength: ", 7);
-  sig_aloff();
-  strcpy(bf3, key_buff);
-  sprintf(ary, "%s.%s.%s.", bf1, bf2, bf3);
-  mudlog("FROB: %s by %s", wordbuf, pname(mynum));
-  mudlog("FROB: %s %s", ary, "");
-  sscanf(bf1, "%d", &(x.p_level));
-  sscanf(bf2, "%d", &(x.p_score));
-  sscanf(bf3, "%d", &(x.p_strength));
-  putpers(wordbuf, &x);
-  bprintf("Ok\n");
+    if (f->state == 20) {
+      strcpy(cur_player->cprompt,f->oldprompt);
+      free(f->oldprompt);
+      cur_player->work = f->oldwork;
+      free(f);
+      pop_input_handler();
+    }
+  }
+  bprintf("%s", cur_player->cprompt);
 }
+
+
+
+
+
+
+
+
+

@@ -1,5 +1,0 @@
-#!/bin/sh
-rm -f Exec
-ln -s goaway Exec
-echo -n 'Down at ' >>DATA/logs/syslog
-date >>DATA/logs/syslog

@@ -1,500 +1,313 @@
-/*
-**  Magic!
-*/
-
 #include "kernel.h"
-#include "actions.h"
-#include "locdir.h"
-#include "macros.h"
-#include "objects.h"
-#include "mobiles.h"
 #include "sendsys.h"
-#include "pflags.h"
-#include "oflags.h"
-#include "lflags.h"
 #include "magic.h"
-#include "support.h"
-#include "exec.h"
+#include "pflags.h"
+#include "sflags.h"
+#include "cflags.h"
+#include "lflags.h"
+#include "oflags.h"
+#include "objects.h"
+#include "bprintf.h"
 #include "parse.h"
-#include "blood.h"
-#include "extra.h"
-#include "new2.h"
-#include "weather.h"
-#include "tk.h"
+#include "mobile.h"
+#include "mud.h"
+#include "uaf.h"
+#include "objsys.h"
 
-static char sccsid[] = "@(#)magic.c	4.100.0 (IthilMUD)	6/02/90";
 
-int randperc()
-{
-  return (rand() % 100);
-}
 
-/* Brian Preble -- shows current set*in/set*out settings */
-void reviewcom()
-{
-  char ms[128];
-
-  if (plev(mynum) < LVL_WIZARD) {
-    erreval();
-    return;
-  }
-  bprintf("Current travel messages:\n");
-  bprintf("------------------------\n");
-  bprintf("SETIN   : %s %s\n", pname(mynum), in_ms);
-  sprintf(ms, out_ms, "<dir>");
-  bprintf("SETOUT  : %s %s\n", pname(mynum), ms);
-  bprintf("SETMIN  : %s %s\n", pname(mynum), min_ms);
-  bprintf("SETMOUT : %s %s\n", pname(mynum), mout_ms);
-  bprintf("SETVIN  : %s %s\n", pname(mynum), vin_ms);
-  bprintf("SETVOUT : %s %s\n", pname(mynum), vout_ms);
-}
-
-void cripplecom()
+/* Brian Preble -- Heals a player (and mobiles -Nicknack)*/
+void healcom(void)
 {
   int a;
-
-  if (vicf2(&a, SPELL_REFLECTS, 4) != -1)
-    sendsys(pname(a), pname(mynum), SYS_CRIPPLE, ploc(mynum), "");
-}
-
-/* Brian Preble -- Heals a player */
-void healcom()
-{
-  int a;
+  Boolean f;
+  PERSONA p;
     
   if (EMPTY(item1)) {
     bprintf("Heal who?\n");
     return;
   }
-  if (plev(mynum) < LVL_WIZARD) {
+  if (!ptstflg(mynum, PFL_HEAL)) {
     bprintf("The spell fails.\n");
     return;
   }
-  if (vicf2(&a, SPELL_PEACEFUL, 100) != -1) {
-    if (a == mynum) {
-      bprintf("You feel much better.\n");
-      setpstr(mynum, maxstrength(mynum));
-      return;
-    }
-    sendsys(pname(a), pname(mynum), SYS_HEAL, ploc(mynum), "");
-    bprintf("Power radiates from your hands to heal %s.\n", pname(a));
-  }
-}
-
-void curecom()
-{
-  int a;
-
-  if (EMPTY(item1)) {
-    bprintf("Cure who?\n");
+  if (brkword() == -1 || (a = find_player(wordbuf,&p,&f)) == -1) {
+    bprintf("Heal who?\n");
     return;
   }
-  if (vicf2(&a, SPELL_PEACEFUL, 8) != -1) {
-    sendsys(pname(a), pname(mynum), SYS_CURE, ploc(mynum), "");
-    if (a != mynum)
-      bprintf("With a laying on of hands, you miraculously cure %s.\n", pname(a));
-  }
-}
-
-void dumbcom()
-{
-  int a;
-
-  if (vicf2(&a, SPELL_REFLECTS, 4) != -1)
-    sendsys(pname(a), pname(mynum), SYS_DUMB, ploc(mynum), "");
-}
-
-void forcecom()
-{
-  int a;
-  char z[128];
-
-  if (vicf2(&a, SPELL_REFLECTS, 4) == -1)
+  if (a == mynum) {
+    bprintf("You feel much better.\n");
+    setpstr(mynum, maxstrength(mynum));
     return;
-  if (a >= MAX_USERS) {
+  } else if (a >= max_players) {
+    setpstr(a, pstr_reset(a));
+  } else if (a >= 0) {
+    setpstr(a, maxstrength(a));
+  } else if (f) {
+    bprintf("%s will feel much better now!\n", p.p_name);
+    p.p_strength = pmaxstrength(p.p_level);
+    putuaf(&p);
+    return;
+  }
+
+  bprintf("Power radiates from your hands to heal %s.\n", pname(a));
+  sendf(a, "%s heals all your wounds.\n", see_name(a,mynum));
+}
+
+
+
+
+void forcecom(void)
+{
+  int rme = real_mynum;
+  int me = mynum;
+  int a;
+  char z[MAX_COM_LEN];
+  char b[MAX_COM_LEN];
+
+  if ((a = vicf2(SPELL_REFLECTS, 4)) < 0)
+    return;
+  if (a >= max_players) {
     bprintf("You can only force players to do things.\n");
     return;
   }
+  if (plev(mynum) < LVL_WIZARD && ploc(mynum) != ploc(a)) {
+      bprintf("There is no %s here.\n", pname(a));
+      return;
+  }
   getreinput(z);
-  sendsys(pname(a), pname(mynum), SYS_FORCE, ploc(mynum), z);
-}
 
-int castspell(int m)
-{
-  if (mynum == m) {
-    bprintf("You're supposed to be killing others, not yourself.\n");
-    error();
-    return 0;
-  }
-  if (ptstflg(m, pfl(NoHassle))) {
-    bprintf("The magic flashes harmlessly past.\n");
-    error();
-    return 0;
-  }
-  return -1;
-}
+  if (do_okay(me, a, PFL_NOFORCE)) {
 
-void damagebyspell(int m, int v)
-{
-  if (m >= MAX_USERS)
-    woundmn(m, v);
-  if (plev(m) <= LVL_ARCHWIZARD && pstr(m) < 0) {
-    bprintf("Your last spell did the trick.\n");
-    if (m < MAX_USERS)
-      if (plev(m) > 2)
-	setpscore(mynum, pscore(mynum) +
-		  (plev(m) * plev(m) * plev(m) * 10));
-      else
-	setpscore(mynum, pscore(mynum) + 10 * damof(m));
-    setpstr(m, -1);
-    in_fight = 0;
-    fighting = -1;
-    setpfighting(mynum, -1);
-  }
-  else
-    if (plev(m) > 2 || plev(m) < 0) /* no points for wimps */
-      setpscore(mynum, pscore(mynum) + v * 2);
-}
+    send_msg(DEST_ALL, MODE_QUIET, LVL_WIZARD, LVL_MAX, NOBODY, NOBODY,
+	     "[\001p%s\003 forced \001p%s\003]\n[Force:%s]\n",
+	     pname(rme), pname(a), z);
 
-void missilecom()
-{
-  int a;
-  char ar[8];
+    setup_globals(a);
+    bprintf( "%s has forced you to %s\n", see_name(a, me), z);
+    cur_player->isforce = True;
+    gamecom(z,True);
+    cur_player->isforce = False;
+    setup_globals(rme);
 
-  if (vichfb(&a, 5) == -1)
-    return;
-  if (castspell(a)) {
-    sprintf(ar, "%d", plev(mynum) * 2);
-    sendsys(pname(a), pname(mynum), SYS_MISSILE, ploc(mynum), ar);
-    damagebyspell(a, plev(mynum) * 2);
+  } else {
+
+    sendf(a, "%s tried to force you to %s\n", see_name(a, me), z);
   }
 }
 
-void fireballcom()
-{
-  int a, damage;
-  char ar[8];
 
-  if (vichfb(&a, 5) == -1)
-    return;
-  if (castspell(a)) {
-    damage = (iscarrby(OBJ_SULPHUR, mynum) ? 3 : 2);
-	if (iscarrby(OBJ_SULPHUR_1, mynum)) {
-	  damage = 3;
+
+
+
+
+void sumcom(void)
+{
+    int    a, me = mynum, rme = real_mynum;
+    int    c, d, x;
+
+    if (brkword() == -1) {
+	bprintf("Summon who?\n");
+	return;
+    }
+
+    do {
+	if ((a = fpbn(wordbuf)) != -1) {
+
+	    if (plev(mynum) < LVL_WIZARD) {
+		if (a == mynum) {
+		    bprintf("You're already here.\n");
+		    return;
+		}
+		if (pstr(mynum) < 10) {
+		    bprintf("You're too weak.\n");
+		    return;
+		}
+		setpstr(mynum, pstr(mynum) - 2);
+
+		c = plev(mynum) * 2;
+
+		if (carries_obj_type(mynum, OBJ_BLIZZARD_POWERSTONE) > -1||
+		    carries_obj_type(mynum, OBJ_BLIZZARD_POWERSTONE1) > -1 ||
+		    carries_obj_type(mynum, OBJ_BLIZZARD_POWERSTONE2) > -1)
+		  c += plev(mynum);
+
+		d = randperc();
+
+		if (ltstflg(ploc(mynum), LFL_ONE_PERSON)) {
+		    bprintf("It's too restricted in here.\n");
+		    return;
+		}
+		if (ltstflg(ploc(mynum), LFL_NO_SUMMON)) {
+		    bprintf("Something prevents your summoning "
+			    "from succeeding.\n");
+		    return;
+		}
+		if (ltstflg(ploc(mynum), LFL_ON_WATER)) {
+		    bprintf("The boat is rolling too much.\n");
+		    return;
+		}
+		if (a >= max_players) {
+		    bprintf("You can't summon mobiles.\n");
+		    return;
+		} else if ( c < d || players[a].asmortal > 0 ) {
+		    bprintf("The spell fails.\n");
+		    return;
+		}
+		if ( wears_obj_type(a, OBJ_CATACOMB_SHIELD) > -1
+		    || wears_obj_type(a, OBJ_TREEHOUSE_AMULET) > -1
+		    || carries_obj_type(a, OBJ_CASTLE_RUNESWORD) > -1
+		    || wears_obj_type(a, OBJ_BLIZZARD_TALISMAN) > -1
+		    || wears_obj_type(a, OBJ_ICECAVE_PENDANT) > -1) {
+		    bprintf("Something prevents your summoning "
+			    "from succeeding.\n");
+		    return;
+		}
+
+	    } /* end; if not wiz */
+
+
+	    if (!do_okay(mynum, a, PFL_NOSUMMON)) {
+		bprintf("%s doesn't want to be summoned.\n", pname(a));
+		sendf(a, "%s tried to summon you!\n", see_name(a, mynum));
+		continue;
+	    }
+
+	    bprintf("You cast the summoning......\n");
+
+	    if (plev(mynum) < LVL_WIZARD && !the_world->w_tournament) {
+	      sendf(a, "You drop everything as you are summoned by %s.\n",
+		    see_name(a, mynum));
+
+	      /* let a drop everything except items worn/wielded */
+
+	    } else {
+	      sendf(a, "You are summoned by %s.\n", see_name(a, mynum));
+	    }
+
+	    send_msg(ploc(a), 0, pvis(a), LVL_MAX, a, NOBODY,
+		     "%s disappears in a puff of smoke.\n", pname(a));
+
+	    if (a < max_players) {
+
+	      send_msg(ploc(mynum), 0, pvis(a), LVL_MAX, a, NOBODY,
+		       "%s appears, looking bewildered.\n", pname(a));
+
+	      setup_globals(a);
+	      trapch(ploc(me));  /*summon into death rooms might cause prob.*/
+	                         /*because of the crapup() call in trapch() */
+
+
+	      setup_globals(rme);
+	    }
+	    else {
+
+	      send_msg(ploc(mynum), 0, pvis(a), LVL_MAX, a, NOBODY,
+		       "%s arrives.\n", pname(a));
+
+	      setploc(a, ploc(mynum));
+	    }
+
+	    continue;
+
+	} else if ((a = fobn(wordbuf)) != -1) {
+
+	    /* Summon object... also by number now.
+	     */
+
+	    if (!ptstflg(mynum,PFL_SUMOBJ)) {
+		bprintf("You can only summon people.\n");
+		continue;
+	    }
+	    x = a;
+	    while (ocarrf(x) == IN_CONTAINER)
+	      x = oloc(x);
+	    
+	    if (ocarrf(x) >= CARRIED_BY)
+	      x = ploc(oloc(x));
+	    else
+	      x = oloc(x);
+
+	    send_msg(ploc(mynum), 0, pvis(mynum), LVL_MAX, mynum, NOBODY,
+	     "%s fetches something from another dimension.\n", pname(mynum));
+
+	    sendf(x, "The %s vanishes!\n", oname(a));
+      
+	    bprintf("The %s flies into your hand.\nIt was:", oname(a));
+	    desrm(oloc(a), ocarrf(a));
+	    setoloc(a, mynum, CARRIED_BY);
+	    continue;
+
+	} else {
+	    bprintf("Who or what is %s?\n", wordbuf);
 	}
-    damage = (a == MOB_YETI || a == MOB_GUARDIAN ? 6 : damage) * plev(mynum);
-    sprintf(ar, "%d", damage);
-    sendsys(pname(a), pname(mynum), SYS_FIREBALL, ploc(mynum), ar);
-    damagebyspell(a, damage);
+    } while (plev(mynum) >= LVL_WIZARD && brkword() != -1);
+}
+
+
+static void vis_proc(int new)
+{
+  char xx[SETIN_MAX];
+
+  int oldvis = pvis(mynum);
+
+  setpvis(mynum, new);
+
+  bprintf("Ok\n");
+
+  if (new < oldvis) {
+    send_msg(ploc(mynum), 0, new, oldvis, mynum, NOBODY,
+	     "%s\n", build_setin(xx,cur_player->setvin,pname(mynum),NULL));
+  } else {
+    send_msg(ploc(mynum), 0, oldvis, new, mynum, NOBODY,
+	     "%s\n", build_setin(xx,cur_player->setvout,pname(mynum),NULL));
   }
 }
 
-void shockcom()
+void viscom(void)
 {
-  int a, damage;
-  char ar[8];
-
-  if (vichfb(&a, 5) == -1)
-    return;
-  if (castspell(a)) {
-    damage = (iscarrby(OBJ_LODESTONE, mynum) ? 3 : 2);
-    damage = damage * plev(mynum);
-    sprintf(ar, "%d", damage);
-    sendsys(pname(a), pname(mynum), SYS_SHOCK, ploc(mynum), ar);
-    damagebyspell(a, damage);
-  }
-}
-
-void frostcom()
-{
-  int a, damage;
-  char ar[8];
-
-  if (vichfb(&a, 5) == -1)
-    return;
-  if (castspell(a)) {
-    damage = iscarrby(OBJ_WINTERGREEN, mynum) ? 3 : 2;
-    damage = (a == MOB_FLAME || a == MOB_EFREET || a == MOB_LAVAMAN
-	      ? 6 : damage) * plev(mynum);
-    sprintf(ar, "%d", damage);
-    sendsys(pname(a), pname(mynum), SYS_FROST, ploc(mynum), ar);
-    damagebyspell(a, damage);
-  }
-}
-
-void sumcom()
-{
-  sumb(1);
-}
-
-void transcom()
-{
-  if (plev(mynum) < LVL_NECROMANCER)
-    erreval();
-  else
-    sumb(0);
-}
-
-void sumb(int n)
-{
-  int a;
-  char seg[128];
-  int c, d, x;
-  FILE *fl;
-  time_t t;
-  long u;
-
-  if (plev(mynum) < LVL_CONJURER)
-  {
-      bprintf("Pardon?\n");
-      return;
-  }
-
-  if (EMPTY(item1)) {
-    bprintf("Summon who?\n");
-    return;
-  }
-  if ((a = fpbn(item1)) != -1) {
-    if ((a == mynum) && (plev(mynum) < LVL_GOD)) {
-      bprintf("Sorry, you can't summon yourself.\n");
-      return;
-    }
-    if (plev(mynum) < LVL_WIZARD) {
-      if (pstr(mynum) < 10) {
-	bprintf("You're too weak.\n");
-	return;
-      }
-      if (plev(mynum) < LVL_WIZARD)
-	setpstr(mynum, pstr(mynum) - 1);
-      c = plev(mynum) * 2;
-      if (plev(mynum) >= LVL_WIZARD)
-	c = 101;
-      if (iscarrby(OBJ_POWERSTONE, mynum) ||
-	  iscarrby(OBJ_POWERSTONE_1, mynum) ||
-	  iscarrby(OBJ_POWERSTONE_2, mynum))
-	c += plev(mynum);
-      d = randperc();
-      if (ltstflg(ploc(mynum), lfl(OnePerson))) {
-	bprintf("It's too restricted in here.\n");
-	return;
-      }
-      if (ltstflg(ploc(mynum), lfl(NoSummon))) {
-	bprintf("Something prevents your summoning from succeeding.\n");
-	return;
-      }
-      if (ltstflg(ploc(mynum), lfl(OnWater))) {
-	bprintf("The boat is rolling too much.\n");
-	return;
-      }
-      if (c < d) {
-	bprintf("The spell fails.\n");
-	return;
-      }
-/* 
-**  If NO_SUMMON is defined, then mortals may not summon mobiles unless
-**  NO_SUMMON minutes have passed since the reset. -- Rassilon
-*/
-#ifdef NO_SUMMON
-      if (a >= MAX_USERS && plev(mynum) < LVL_WIZARD) {
-	if (gametime() < NO_SUMMON * 60) {
-	  bprintf("No summoning until 1.5 hours have passed ");
-	  bprintf("from reset time.\n");
-	  return;
-	}
-      }  /*  LEVEL CHECK */
-#endif
-      if (plev(mynum) < LVL_WIZARD && (
-	  iswornby(OBJ_SHIELD_4, a) || iswornby(OBJ_AMULET, a) || 
-	  iscarrby(OBJ_RUNESWORD, a) || iswornby(OBJ_TALISMAN, a) || 
-	  iswornby(OBJ_PENDANT, a) || plev(a) >= LVL_WIZARD ||
-	  ptstflg(a, pfl(Unsummonable)))) {
-	  bprintf("Something blocks your summoning.\n");
-	  return;
-      }
-      if (a == mynum) {
-	    bprintf("You're already here.\n");
-	    return;
-      }
-    }
-    if ((plev(mynum) < LVL_ARCHWIZARD) && (plev(a) >= LVL_WIZARD)) {
-      bprintf("You can't summon Wizards, Arch-Wizards, or Gods.\n");
-      sendsys(pname(a), pname(mynum), SYS_SUMMON, ploc(mynum), n ? "1" : "0");
-      return;
-    }
-    bprintf("You cast the summoning......\n");
-    if (a < MAX_USERS) {	/* Is this a mobile or a player? */
-      if (plev(mynum) >= LVL_ARCHWIZARD && plev(mynum) < LVL_GOD)
-	sendsys(pname(a), pname(mynum), SYS_WIZ_SUMMON, ploc(mynum), n ? "1" : "0");
-      else if (plev(mynum) >= LVL_GOD)
-	sendsys(pname(a), pname(mynum), SYS_GOD_SUMMON, ploc(mynum), n ? "1" : "0");
-	  else
-	sendsys(pname(a), pname(mynum), SYS_SUMMON, ploc(mynum), n ? "1" : "0");
-      return;
-    }
-    if (n)
-      on_flee_mob(a);
-    sprintf(seg, "\001s%s\377%s disappears in a puff of smoke.\n\377",
-	    pname(a), pname(a));
-    sendsys("", "", SYS_TXT_TO_R, ploc(a), seg);
-    setploc(a, ploc(mynum));
-    sprintf(seg, "\001s%s\377%s arrives.\n\377", pname(a), pname(a));
-    sendsys("", "", SYS_TXT_TO_R, ploc(a), seg);
-    if (a == MOB_SKELETON) {
-      sprintf(seg, "\001c%s disintegrates, leaving behind a pile of bones which quickly\ncrumble into dust and are blown away by the wind.\n\377",
-	      pname(a));
-      sendsys("", "", SYS_TXT_TO_R, ploc(mynum), seg);
-      woundmn(a, 10000);
-    }
-    if (plev(mynum) < LVL_WIZARD)
-      /* Monster regards summoning as a hostile action */
-      woundmn(a, 0);
-    return;
-  }
-  /* Summon object... also by number now */
-  else if ((a = fobn(item1)) != -1) {
-    if (plev(mynum) < LVL_WIZARD) {
-      bprintf("You can only summon people and monsters.\n");
-      return;
-    }
-    if (otstbit(a, ofl(Unlocatable)) && (plev(mynum) < LVL_GOD))
-    {
-      bprintf("Strange...  You can't seem to find it.\n");
-      return;
-    }
-    x = oloc(a);
-    if (ocarrf(a) > 0)
-      x = ploc(x);
-    sprintf(seg, "The %s vanishes!\n", oname(a));
-    sendsys("", "", SYS_MSG_TO_Rd, x, seg);
-    if(!ptstflg(mynum, pfl(NoArms))) {
-       bprintf("The %s flies into your hand.\nIt was:", oname(a));
-       showlocation(a);
-       setoloc(a, mynum, CARRIED_BY);
-       return;
-       }
-    else {
-       bprintf("The %s appears where your hand should be.\nIt was:",oname(a));
-       showlocation(a);
-       setoloc(a, ploc(mynum), IN_ROOM);
-       return;
-       }
-  }
-  else {
-    bprintf("Who or what is that?\n");
-    return;
-  }
-}
-
-void goloccom(int tiptoe)
-{
-  char bf[128];
-  int a, i, pc;
-
-  if (plev(mynum) < LVL_WIZARD) {
-    erreval();
-    return;
-  }
-  if ((a = getroomnum()) == 0 || !exists(a)) {
-    bprintf("Unknown Player Or Room\n");
-    return;
-  }
-  if (plev(mynum) < LVL_GOD) {
-    if (ltstflg(a, lfl(Private))) {
-      pc = 0;
-      for (i = 0; i < MAX_USERS; i++)
-        if (!EMPTY(pname(i)) && ploc(i) == a)
-	  pc++;
-      if (pc > 1) {
-        bprintf("I'm sorry, there's a private conference in that location.\n");
-        return;
-      }
-    }
-  }
-  if (!tiptoe) {
-    sprintf(bf, "\001s%%s\377%%s %s\n\377", mout_ms);
-    sillycom(bf);
-  }
-  setploc(mynum, a);
-  trapch(a);
-  if (!tiptoe) {
-    sprintf(bf, "\001s%%s\377%%s %s\n\377", min_ms);
-    sillycom(bf);
-  }
-}
-
-void wizcom()
-{
-  char bf[128];
-
-  if (plev(mynum) < LVL_WIZARD) {
-    bprintf("Such advanced conversation is beyond you.\n");
-    return;
-  }
-  getreinput(wordbuf);
-  sprintf(bf, "\001p%s\377: %s\n", pname(mynum), wordbuf);
-  sendsys(pname(mynum), pname(mynum), SYS_WIZ, ploc(mynum), bf);
-  rd_qd = True;
-}
-
-void viscom()
-{
-  char bf[128];
-  int ar[4];
-
   if (plev(mynum) < LVL_WIZARD) {
     bprintf("You can't do that sort of thing at will, you know.\n");
     return;
   }
-  if (!pvis(mynum)) {
+  if (pvis(mynum) == 0) {
     bprintf("You're already visible.\n");
     return;
   }
-  setpvis(mynum, 0);
-  ar[0] = mynum;
-  ar[1] = pvis(mynum);
-  sendsys("", "", SYS_VIS, 0, (char *)ar);
-  bprintf("Ok\n");
-  pclrflg(mynum, pfl(InvisStart));
-  sprintf(bf, "\001s%%s\377%%s %s\n\377", vin_ms);
-  sillycom(bf);
+  vis_proc(0);
 }
 
 void inviscom()
 {
-  char bf[128];
-  int x;
-  int ar[4];
+  int x, y;
 
-  if (plev(mynum) < LVL_WIZARD) {
-    bprintf("You can't turn invisible at will, you know.\n");
+  switch (wlevel(plev(mynum))) {
+  case LEV_GOD: x = LVL_GOD; break;
+  case LEV_DEMI: x = LVL_GOD; break;
+  case LEV_ARCHWIZARD: x = LVL_DEMI; break;
+  case LEV_WIZARD:
+  case LEV_APPRENTICE: x = LVL_ARCHWIZARD; break;
+  default:
+    bprintf("You can't turn invisible at will, you know.\n");    
     return;
   }
-  if (plev(mynum) >= LVL_GOD)
-    x = LVL_GOD;
-  else
-    x = plev(mynum) >= LVL_ARCHWIZARD ? LVL_GOD : LVL_ARCHWIZARD;
-  if (op(mynum) && brkword() != -1)
-    x = atoi(wordbuf);
-  if (pvis(mynum) == x) {
-    bprintf("You're already invisible.\n");
+  if (brkword() == -1 || (y = atoi(wordbuf)) < 0 || y > x) y = x;
+
+  if (pvis(mynum) == y) {
+    bprintf("You're already %svisible.\n", (y == 0? "" : "in"));
     return;
   }
-  setpvis(mynum, x);
-  ar[0] = mynum;
-  ar[1] = pvis(mynum);
-  sendsys("", "", SYS_VIS, 0, (char *)ar);
-  bprintf("Ok\n");
-  psetflg(mynum, pfl(InvisStart));
-  sprintf(bf, "\001c%%s %s\n\377", vout_ms);
-  sillycom(bf);
+
+  vis_proc(y);
 }
 
-void resurcom()
+
+
+void resurcom(void)
 {
-  char bf[80];
   int a;
 
-  if (plev(mynum) < LVL_WIZARD) {
+  if (!ptstflg(mynum,PFL_RES)) {
     erreval();
     return;
   }
@@ -503,119 +316,126 @@ void resurcom()
     return;
   }
   if ((a = fobn(item1)) == -1) {
-    bprintf("You can only resurrect objects.\n");
-    return;
+      if ((a = fpbn(item1)) == -1 || a < max_players ) {
+	  bprintf("You can only resurrect objects and mobiles.\n");
+	  return;
+      }
+
+      if (!EMPTY(pname(a))) {
+	  /* if alive we should only give them strength and level back :-) */
+
+	  if (pfighting(a) != -1) {
+	      bprintf("%s is fighting at the moment.\n", pname(a));
+	      return;
+	  } else if (pstr(a) >= 0) {
+	      bprintf("%s is resurrected.\n", pname(a));
+	      setpstr(a, pstr_reset(a));
+	      return;
+	  }
+      }
+      if (ltstflg(ploc(mynum),LFL_ONE_PERSON)) {
+	  bprintf("This room is too small.\n");
+	  return;
+      }
+
+      reset_mobile(a);
+
+      setploc(a, ploc(mynum));
+
+      sendf(ploc(mynum), "%s suddenly appears.\n", pname(a));
+      return;
   }
   if (ospare(a) != -1) {
     bprintf("It already exists.\n");
     return;
   }
-  oclrbit(a, ofl(Destroyed));
-  setoloc(a, ploc(mynum), 0);
-  sprintf(bf, "The %s suddenly appears.\n", oname(a));
-  sendsys("", "", SYS_TXT_TO_R, ploc(mynum), bf);
+  oclrbit(a, OFL_DESTROYED);
+  setoloc(a, ploc(mynum), IN_ROOM);
+
+  sendf(ploc(mynum), "The %s suddenly appears.\n", oname(a));
 }
 
-int vicf2(int *x, int f1, int i)
+
+
+void deafcom(void)
 {
   int a;
 
-  if (ltstflg(ploc(mynum), lfl(NoMagic)) && plev(mynum) < LVL_WIZARD) {
-    bprintf("Something about this location has drained your mana.\n");
-    return -1;
-  }
-  if (f1 >= SPELL_VIOLENT && plev(mynum) < LVL_WIZARD && testpeace()) {
-    bprintf("No, that's violent!\n");
-    return -1;
-  }
-  if ((a = vicbase(x)) == -1)
-    return -1;
-  if (pstr(mynum) < 10) {
-    bprintf("You are too weak to cast magic.\n");
-    return -1;
-  }
-  if (plev(mynum) < LVL_WIZARD)
-    setpstr(mynum, pstr(mynum) - 1);
-  if (iscarrby(OBJ_POWERSTONE, mynum))
-    i++;
-  if (iscarrby(OBJ_POWERSTONE_1, mynum))
-    i++;
-  if (iscarrby(OBJ_POWERSTONE_2, mynum))
-    i++;
-  if (plev(mynum) < LVL_WIZARD && randperc() > i * plev(mynum)) {
-    bprintf("You fumble the magic.\n");
-    if (f1 == SPELL_REFLECTS) {
-      *x = mynum;
-      bprintf("The spell reflects back.\n");
-      return a;
-    }
-    return -1;
-  }
-  if (plev(mynum) < LVL_WIZARD) {
-    if ((f1 >= SPELL_VIOLENT) && iswornby(OBJ_SHIELD_4, pl1)) {
-      bprintf("The spell is absorbed by %s shield.\n", his_or_her(pl1));
-      return -1;
+  if ((a = vicf2(SPELL_REFLECTS, 4)) != -1) {
+
+    if (do_okay(mynum, a, PFL_NOMAGIC)) {
+      sendf(a, "You have been magically deafened!\n");
+      ssetflg(a, SFL_DEAF);
     }
     else
-      bprintf("The spell succeeds!\n");
+      sendf(a, "%s tried to deafen you!\n", see_name(a, mynum));
   }
-  else
-    bprintf("The spell succeeds!\n");
-  return a;
 }
 
-int vichfb(int *x, int cth)
+void blindcom(void)
 {
   int a;
 
-  if ((a = vicf2(x, SPELL_VIOLENT, cth)) == -1)
-    return -1;
-  if (ploc(*x) != ploc(mynum)) {
-    bprintf("%s isn't here.\n", psex(*x) ? "She" : "He");
-    return -1;
+  if ((a = vicf2(SPELL_REFLECTS, 4)) != -1) {
+
+    if (do_okay(mynum, a, PFL_NOMAGIC)) {
+      sendf(a, "You have been struck magically blind!\n");
+      ssetflg(a, SFL_BLIND);
+    }
+    else
+      sendf(a, "%s tried to blind you!\n", see_name(a, mynum));
   }
-  return a;
 }
 
-void deafcom()
+
+void dumbcom(void)
 {
   int a;
 
-  if (vicf2(&a, SPELL_REFLECTS, 4) != -1)
-    sendsys(pname(a), pname(mynum), SYS_DEAF, ploc(mynum), "");
+  if ((a = vicf2(SPELL_REFLECTS, 4)) >= 0) {
+    if (do_okay(mynum, a, PFL_NOMAGIC)) {
+      sendf(a, "You have been struck magically dumb!\n");
+      ssetflg(a, SFL_DUMB);
+    }
+    else
+      sendf(a, "%s tried to mute you!\n", see_name(a, mynum));
+  }
 }
 
-void blindcom()
+
+void cripplecom(void)
 {
   int a;
 
-  if (vicf2(&a, SPELL_REFLECTS, 4) != -1)
-    sendsys(pname(a), pname(mynum), SYS_BLIND, ploc(mynum), "");
+  if ((a = vicf2(SPELL_REFLECTS, 4)) >= 0) {
+    if (do_okay(mynum, a, PFL_NOMAGIC)) {
+      sendf(a, "You have been magically crippled!\n");
+      ssetflg(a, SFL_CRIPPLED);
+    }
+    else
+      sendf(a, "%s tried to cripple you!\n", see_name(a, mynum));
+  }
 }
 
-void zapcom()
+
+void curecom(void)
 {
-  int vic;
+  int a;
 
-  if (plev(mynum) < LVL_WIZARD) {
-    bprintf("The spell fails.\n");
+  if (EMPTY(item1)) {
+    bprintf("Cure who?\n");
     return;
   }
-  if (brkword() == -1) {
-    bprintf("Zap who?\n");
-    return;
+  if ((a = vicf2(SPELL_PEACEFUL, 8)) >= 0) {
+    sclrflg(a, SFL_DUMB);
+    sclrflg(a, SFL_CRIPPLED);
+    sclrflg(a, SFL_BLIND);
+    sclrflg(a, SFL_DEAF);
+    sendf(a, "All your ailments have been cured.\n");
+    if (a != mynum)
+      bprintf("With a laying on of hands, you miraculously cure %s.\n",
+	      pname(a));
   }
-  if ((vic = pl1) == -1) {
-    bprintf("There is no one on with that name.\n");
-    return;
-  }
-  if (plev(vic) >= LVL_GOD) {
-    bprintf("The spell fails.\n");
-    return;
-  }
-  sendsys(pname(vic), pname(mynum), SYS_ZAP, ploc(vic), "");
-  mudlog("%s zapped %s", pname(mynum), pname(vic));
-  if (vic >= MAX_USERS)
-    woundmn(vic, 10000);	/* if mobile, kill it */
-  broad("\001dYou hear an ominous clap of thunder in the distance.\n\377");
 }
+
+

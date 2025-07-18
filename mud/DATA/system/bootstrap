@@ -1,7 +1,0 @@
-M:DATA/system/messages
-O:DATA/system/objects
-C:DATA/system/mobiles
-Z:DATA/system/zones
-V:DATA/system/verbs
-E:DATA/system/levels
-A:DATA/system/actions

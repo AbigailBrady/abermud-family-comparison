@@ -1,2 +1,0 @@
-void closeworld();
-FILE *openworld();

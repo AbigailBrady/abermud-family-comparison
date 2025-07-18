@@ -1,5 +1,0 @@
-#!/bin/sh
-rm -f Exec
-ln -s abermud Exec
-echo -n 'Up at ' >>DATA/logs/syslog
-date >>DATA/logs/syslog

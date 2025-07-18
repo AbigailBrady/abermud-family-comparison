@@ -1,7 +1,0 @@
-			    --- God Commands ---
-
-CHANGE TITLE		Change user's title
-CHANGE PASSWD <user>    Change user's password
-MAXUSERS [n]		Sets the maximum number of players
-SHUTDOWN <msg>		Kicks everyone off, disables logins, and displays <msg>
-
